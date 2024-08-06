@@ -1,11 +1,12 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
-	"log/slog"
 	"net/http"
 	"strconv"
+	"thabomoyo.co.uk/internal/models"
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
@@ -13,20 +14,25 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	// to note that the file containing our base template must be the *first*
 	// file in the slice.
 	files := []string{
-		"./ui/html/pages/home.gohtml", "./ui/html/template.gohtml", "./ui/html/partials/nav.gohtml",
+		"./ui/html/pages/home.gohtml",
 	}
-
-	html, err := template.ParseFiles(files...)
-
+	html, err := app.InitializeTemplates(files...)
+	//go html templating
 	if err != nil {
 		app.serverError(w, r, err) // Use the serverError() helper.
 	}
 
-	responseData := struct{ Items []string }{
-		Items: []string{"Item 1", "Item 2", "Item 3"},
+	snippets, err := app.snippets.Latest()
+	if err != nil {
+		app.serverError(w, r, err)
+		return
 	}
 
-	err = html.ExecuteTemplate(w, "template", responseData)
+	data := map[string][]models.Snippet{
+		"items": snippets,
+	}
+
+	err = html.ExecuteTemplate(w, "base", data)
 
 	if err != nil {
 		app.serverError(w, r, err) // Use the serverError() helper.
@@ -39,10 +45,37 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	_, err = fmt.Fprintf(w, "Display a specific snippet with ID %d...", id)
+
+	snippet, err := app.snippets.Get(id)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecord) {
+			http.NotFound(w, r)
+		} else {
+			app.serverError(w, r, err)
+		}
+		return
+	}
+
+	files := []string{
+		"./ui/html/base.gohtml",
+		"./ui/html/partials/nav.gohtml",
+		"./ui/html/pages/view.gohtml",
+		"./ui/html/partials/footer.gohtml",
+	}
+
+	// Parse the template files...
+	ts, err := template.ParseFiles(files...)
 	if err != nil {
 		app.serverError(w, r, err)
 		return
+	}
+	data := templateData{
+		Snippet: snippet,
+	}
+
+	err = ts.ExecuteTemplate(w, "base", data)
+	if err != nil {
+		app.serverError(w, r, err)
 	}
 }
 
@@ -55,10 +88,17 @@ func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *application) snippetCreatePost(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusCreated)
-	_, err := w.Write([]byte("Save a new snippet..."))
+
+	title := "O snail"
+	content := "O snail\nClimb Mount Fuji,\nBut slowly, slowly!\n\n– Kobayashi Issa"
+	expires := 7
+
+	id, err := app.snippets.Insert(title, content, expires)
+
 	if err != nil {
-		app.logger.Error("Failed to write response: ", slog.Any("error", err))
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
 }

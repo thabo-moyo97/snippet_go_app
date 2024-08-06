@@ -1,4 +1,4 @@
-{{define "template"}}
+{{define "base"}}
 <!doctype html>
 <html lang='en'>
     <head>
@@ -16,7 +16,7 @@
     <main>
         {{template "main" .}}
     </main>
-    <footer>Powered by <a href='https://golang.org/'>Go</a></footer>
+    {{ template "footer" . }}
 
     <script src='/static/js/main.js' type='text/javascript'></script>
     </body>
