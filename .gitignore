@@ -1,0 +1,30 @@
+# .gitignore
+
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Output of the Go coverage tool
+*.out
+
+# IDE specific files
+.idea/
+.vscode/
+*.iml
+
+# Dependency directories
+vendor/
+node_modules/
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# GoLand specific files
+*.go.land
