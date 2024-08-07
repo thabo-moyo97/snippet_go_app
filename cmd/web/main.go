@@ -4,13 +4,14 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
-	_ "github.com/go-sql-driver/mysql" // New import
 	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+
+	_ "github.com/go-sql-driver/mysql" // New import
 	"thabomoyo.co.uk/internal/models"
 )
 
@@ -19,8 +20,9 @@ type neuteredFileSystem struct {
 }
 
 type application struct {
-	logger   *slog.Logger
-	snippets *models.SnippetModel
+	logger        *slog.Logger
+	snippets      *models.SnippetModel
+	templateCache map[string]*template.Template
 }
 
 func main() {
@@ -41,17 +43,20 @@ func main() {
 	}
 	logger.Info("DB connected")
 
-	app := application{
-		logger:   logger,
-		snippets: &models.SnippetModel{DB: db},
+	defer db.Close()
+
+	templateCache, err := newTemplateCache()
+
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
 	}
 
-	defer func(db *sql.DB) {
-		err := db.Close()
-		if err != nil {
-			os.Exit(1)
-		}
-	}(db)
+	app := application{
+		logger:        logger,
+		snippets:      &models.SnippetModel{DB: db},
+		templateCache: templateCache,
+	}
 
 	logger.Info("starting server on port", slog.Any("port", *port))
 
@@ -59,16 +64,6 @@ func main() {
 
 	logger.Error(err.Error())
 	os.Exit(1)
-}
-
-func (app *application) InitializeTemplates(files ...string) (*template.Template, error) {
-	baseTemplates := []string{
-		"./ui/html/base.gohtml",
-		"./ui/html/partials/nav.gohtml",
-		"./ui/html/partials/footer.gohtml",
-	}
-	allFiles := append(baseTemplates, files...)
-	return template.ParseFiles(allFiles...)
 }
 
 func openDB(dsn string) (*sql.DB, error) {

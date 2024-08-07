@@ -3,24 +3,14 @@ package main
 import (
 	"errors"
 	"fmt"
-	"html/template"
 	"net/http"
 	"strconv"
+
 	"thabomoyo.co.uk/internal/models"
 )
 
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
-	// Initialize a slice containing the paths to the two files. It's important
-	// to note that the file containing our base template must be the *first*
-	// file in the slice.
-	files := []string{
-		"./ui/html/pages/home.gohtml",
-	}
-	html, err := app.InitializeTemplates(files...)
-	//go html templating
-	if err != nil {
-		app.serverError(w, r, err) // Use the serverError() helper.
-	}
+	w.Header().Add("Server", "Go")
 
 	snippets, err := app.snippets.Latest()
 	if err != nil {
@@ -28,15 +18,10 @@ func (app *application) home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string][]models.Snippet{
-		"items": snippets,
-	}
+	data := app.newTemplateData(r)
+	data.Snippets = snippets
 
-	err = html.ExecuteTemplate(w, "base", data)
-
-	if err != nil {
-		app.serverError(w, r, err) // Use the serverError() helper.
-	}
+	app.render(w, r, http.StatusOK, "home.tmpl", data)
 }
 
 func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
@@ -56,27 +41,10 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	files := []string{
-		"./ui/html/base.gohtml",
-		"./ui/html/partials/nav.gohtml",
-		"./ui/html/pages/view.gohtml",
-		"./ui/html/partials/footer.gohtml",
-	}
+	data := app.newTemplateData(r)
+	data.Snippet = snippet
 
-	// Parse the template files...
-	ts, err := template.ParseFiles(files...)
-	if err != nil {
-		app.serverError(w, r, err)
-		return
-	}
-	data := templateData{
-		Snippet: snippet,
-	}
-
-	err = ts.ExecuteTemplate(w, "base", data)
-	if err != nil {
-		app.serverError(w, r, err)
-	}
+	app.render(w, r, http.StatusOK, "view.tmpl", data)
 }
 
 func (app *application) snippetCreate(w http.ResponseWriter, r *http.Request) {
