@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"strings"
 	"time"
-	// New import
 )
 
 func (app *application) serverError(w http.ResponseWriter, r *http.Request, err error) {
@@ -29,7 +29,9 @@ func (app *application) serverError(w http.ResponseWriter, r *http.Request, err 
 		return match
 	})
 
-	app.logger.Error(err.Error(), slog.Any("method", method), slog.Any("uri", uri), slog.Any("trace", traceWithLinks))
+	humanFriendlyTrace := formatStackTrace(traceWithLinks)
+
+	app.logger.Error(err.Error(), slog.Any("method", method), slog.Any("uri", uri), slog.Any("trace", humanFriendlyTrace))
 
 	template := app.newTemplateData(r)
 	template.ErrorMessage = "Something went wrong. If the problem persists, please email"
@@ -39,18 +41,29 @@ func (app *application) serverError(w http.ResponseWriter, r *http.Request, err 
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
+func formatStackTrace(trace string) string {
+	lines := strings.Split(trace, "\n")
+	var formattedLines []string
+
+	for _, line := range lines {
+		if strings.Contains(line, "file://") {
+			parts := strings.Split(line, "\"")
+			if len(parts) > 1 {
+				filePath := parts[1]
+				formattedLines = append(formattedLines, fmt.Sprintf("File: %s", filePath))
+			}
+		} else {
+			formattedLines = append(formattedLines, line)
+		}
+	}
+
+	return strings.Join(formattedLines, "\n")
+}
+
 func (app *application) clientError(w http.ResponseWriter, status int) {
 	http.Error(w, http.StatusText(status), status)
 }
 
-/**
- * The render() method is a wrapper around the http.ResponseWriter.Write() method
- * that provides some convenience features for rendering templates. It takes the
- * name of a template file as its first parameter, then a slice of strings
- * (representing the names of any partial templates that you want to include in
-	 * the main template), followed by the usual data parameter. The method returns
-	 * an error, which will be nil if the template renders correctly.
-*/
 func (app *application) render(w http.ResponseWriter, r *http.Request, status int, page string, data templateData) {
 	ts, ok := app.templateCache[page]
 	if !ok {

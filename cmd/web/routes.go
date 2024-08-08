@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/justinas/alice"
 	"net/http"
 )
 
@@ -21,5 +22,8 @@ func (app *application) routes() http.Handler {
 		app.render(w, r, http.StatusOK, "error.tmpl", app.newTemplateData(r))
 	})
 
-	return app.recoverPanic(app.logRequest(commonHeaders(mux)))
+	standard := alice.New(app.recoverPanic, app.logRequest, commonHeaders)
+
+	// Return the 'standard' middleware chain followed by the servemux.
+	return standard.Then(mux)
 }

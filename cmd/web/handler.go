@@ -40,7 +40,6 @@ func (app *application) snippetView(w http.ResponseWriter, r *http.Request) {
 
 	data := app.newTemplateData(r)
 	data.Snippet = snippet
-	panic("test")
 
 	app.render(w, r, http.StatusOK, "view.tmpl", data)
 }
