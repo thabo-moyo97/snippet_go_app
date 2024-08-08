@@ -18,10 +18,6 @@ func (app *application) routes() http.Handler {
 	mux.HandleFunc("GET /snippet/create", app.snippetCreate)
 	mux.HandleFunc("POST /snippet/create", app.snippetCreatePost)
 
-	mux.HandleFunc("/error", func(w http.ResponseWriter, r *http.Request) {
-		app.render(w, r, http.StatusOK, "error.tmpl", app.newTemplateData(r))
-	})
-
 	standard := alice.New(app.recoverPanic, app.logRequest, commonHeaders)
 
 	// Return the 'standard' middleware chain followed by the servemux.
