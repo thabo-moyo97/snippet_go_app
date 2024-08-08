@@ -1,0 +1,10 @@
+{{define "title"}} Error: Internal error{{end}}
+
+{{define "main"}}
+    <div>
+        <h1 style="color: #C0392B">Server Error:</h1>
+        <p style="margin-top: 10px">
+            {{.ErrorMessage}}
+        </p>
+    </div>
+{{end}}

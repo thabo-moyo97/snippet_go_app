@@ -30,6 +30,12 @@ func (app *application) serverError(w http.ResponseWriter, r *http.Request, err 
 	})
 
 	app.logger.Error(err.Error(), slog.Any("method", method), slog.Any("uri", uri), slog.Any("trace", traceWithLinks))
+
+	template := app.newTemplateData(r)
+	template.ErrorMessage = "Something went wrong. If the problem persists, please email"
+
+	app.render(w, r, http.StatusInternalServerError, "error.tmpl", template)
+
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
