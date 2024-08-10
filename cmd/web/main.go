@@ -3,15 +3,19 @@ package main
 import (
 	"database/sql"
 	"flag"
-	"fmt"
+	"github.com/alexedwards/scs/mysqlstore"
+	"github.com/alexedwards/scs/v2"
+	"github.com/go-playground/form/v4"
 	"html/template"
 	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
-	_ "github.com/go-sql-driver/mysql" // New import
+	_ "github.com/go-playground/form/v4"
+	_ "github.com/go-sql-driver/mysql"
 	"thabomoyo.co.uk/internal/models"
 )
 
@@ -20,15 +24,17 @@ type neuteredFileSystem struct {
 }
 
 type application struct {
-	logger        *slog.Logger
-	snippets      *models.SnippetModel
-	templateCache map[string]*template.Template
+	logger         *slog.Logger
+	snippets       *models.SnippetModel
+	templateCache  map[string]*template.Template
+	formDecoder    *form.Decoder
+	sessionManager *scs.SessionManager
 }
 
 func main() {
 	//commandline terminal flags
 	port := flag.Int("port", 8888, "Port to run the server on")
-	//commandline terminal dns
+	//move to environment variables
 	dsn := flag.String("dsn", "web:pass@/snippetbox?parseTime=true", "MySQL data source name")
 	flag.Parse()
 
@@ -38,7 +44,7 @@ func main() {
 	//db connection
 	db, err := openDB(*dsn)
 	if err != nil {
-		logger.Error(err.Error())
+		logger.Error("DB connection failed: " + err.Error())
 		os.Exit(1)
 	}
 	logger.Info("DB connected")
@@ -52,16 +58,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	sessionManager := scs.New()
+	sessionManager.Store = mysqlstore.New(db)
+	sessionManager.Lifetime = 10 * time.Minute // 10 minutes
+
 	app := application{
-		logger:        logger,
-		snippets:      &models.SnippetModel{DB: db},
-		templateCache: templateCache,
+		logger:         logger,
+		snippets:       &models.SnippetModel{DB: db},
+		templateCache:  templateCache,
+		formDecoder:    form.NewDecoder(),
+		sessionManager: sessionManager,
 	}
 
 	logger.Info("starting server on port", slog.Any("port", *port))
 
-	err = http.ListenAndServe(fmt.Sprintf(":%s", strconv.Itoa(*port)), app.routes())
+	srv := &http.Server{
+		Addr:     ":" + strconv.Itoa(*port),
+		Handler:  app.routes(),
+		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+	}
 
+	err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")
 	logger.Error(err.Error())
 	os.Exit(1)
 }

@@ -7,17 +7,18 @@ import (
 
 func commonHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Note: This is split across multiple lines for readability. You don't
-		// need to do this in your own code.
-		w.Header().Set("Content-Security-Policy",
-			"default-src 'self'; style-src 'self' 'unsafe-inline'; font-src fonts.gstatic.com")
+		headers := map[string]string{
+			"Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src fonts.gstatic.com",
+			"Referrer-Policy":         "origin-when-cross-origin",
+			"X-Content-Type-Options":  "nosniff",
+			"X-Frame-Options":         "deny",
+			"X-XSS-Protection":        "0",
+			"Server":                  "Go",
+		}
 
-		w.Header().Set("Referrer-Policy", "origin-when-cross-origin")
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		w.Header().Set("X-Frame-Options", "deny")
-		w.Header().Set("X-XSS-Protection", "0")
-
-		w.Header().Set("Server", "Go")
+		for key, value := range headers {
+			w.Header().Set(key, value)
+		}
 		next.ServeHTTP(w, r)
 	})
 }

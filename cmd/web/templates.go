@@ -17,6 +17,8 @@ type templateData struct {
 	Snippets     []models.Snippet
 	CurrentYear  int
 	ErrorMessage string
+	Form         any
+	Flash        string
 }
 
 var functions = template.FuncMap{

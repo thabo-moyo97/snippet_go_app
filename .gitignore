@@ -28,3 +28,8 @@ Thumbs.db
 
 # GoLand specific files
 *.go.land
+
+# Certs
+*.crt
+*.key
+*.pem
