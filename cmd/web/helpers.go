@@ -6,11 +6,7 @@ import (
 	"fmt"
 	"github.com/go-playground/form/v4" // New import
 	"github.com/justinas/nosurf"
-	"log/slog"
 	"net/http"
-	"regexp"
-	"runtime/debug"
-	"strings"
 	"time"
 )
 
@@ -18,47 +14,10 @@ func (app *application) serverError(w http.ResponseWriter, r *http.Request, err 
 	var (
 		method = r.Method
 		uri    = r.URL.RequestURI()
-		trace  = string(debug.Stack())
 	)
 
-	re := regexp.MustCompile(`(/[\w/.-]+):(\d+)`)
-	traceWithLinks := re.ReplaceAllStringFunc(trace, func(match string) string {
-		parts := re.FindStringSubmatch(match)
-		if len(parts) == 3 {
-			filePath := parts[1]
-			lineNumber := parts[2]
-			return fmt.Sprintf(`"file://%s"%s:%s`, filePath, filePath, lineNumber)
-		}
-		return match
-	})
-
-	humanFriendlyTrace := formatStackTrace(traceWithLinks)
-
-	app.logger.Error(err.Error(), slog.Any("method", method), slog.Any("uri", uri), slog.Any("trace", humanFriendlyTrace))
-
-	template := app.newTemplateData(r)
-	template.ErrorMessage = "Something went wrong. If the problem persists, please email"
-
-	app.render(w, r, http.StatusInternalServerError, "error.tmpl", template)
-}
-
-func formatStackTrace(trace string) string {
-	lines := strings.Split(trace, "\n")
-	var formattedLines []string
-
-	for _, line := range lines {
-		if strings.Contains(line, "file://") {
-			parts := strings.Split(line, "\"")
-			if len(parts) > 1 {
-				filePath := parts[1]
-				formattedLines = append(formattedLines, fmt.Sprintf("File: %s", filePath))
-			}
-		} else {
-			formattedLines = append(formattedLines, line)
-		}
-	}
-
-	return strings.Join(formattedLines, "\n")
+	app.logger.Error(err.Error(), "method", method, "uri", uri)
+	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
 
 func (app *application) clientError(w http.ResponseWriter, status int) {

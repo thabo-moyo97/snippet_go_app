@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	validator "thabomoyo.co.uk/internal"
 	"thabomoyo.co.uk/internal/models"
+	"thabomoyo.co.uk/internal/validator"
 )
 
 //TODO - Separate handlers into their own files1
@@ -34,6 +34,7 @@ type userLoginForm struct {
 func (app *application) home(w http.ResponseWriter, r *http.Request) {
 	//TODO - Implement pagination
 	snippets, err := app.snippets.Latest()
+
 	if err != nil {
 		app.serverError(w, r, err)
 		return
@@ -166,11 +167,8 @@ func (app *application) userSignupPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Otherwise add a confirmation flash message to the session confirming that
-	// their signup worked.
 	app.sessionManager.Put(r.Context(), "flash", "Your signup was successful. Please log in.")
 
-	// And redirect the user to the login page.
 	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
 
@@ -178,6 +176,10 @@ func (app *application) userLogin(w http.ResponseWriter, r *http.Request) {
 	data := app.newTemplateData(r)
 	data.Form = userLoginForm{}
 	app.render(w, r, http.StatusOK, "login.tmpl", data)
+}
+
+func ping(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("OK"))
 }
 
 func (app *application) userLoginPost(w http.ResponseWriter, r *http.Request) {
@@ -236,5 +238,5 @@ func (app *application) userLogoutPost(w http.ResponseWriter, r *http.Request) {
 
 	app.sessionManager.Put(r.Context(), "flash", "You've been logged out successfully!")
 
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }

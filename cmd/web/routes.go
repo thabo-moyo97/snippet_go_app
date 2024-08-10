@@ -3,15 +3,16 @@ package main
 import (
 	"github.com/justinas/alice"
 	"net/http"
+	"thabomoyo.co.uk/ui"
 )
 
 // The routes() method returns a servemux containing our application routes.
 func (app *application) routes() http.Handler {
 	mux := http.NewServeMux()
-	// Create a file server which serves files out of the ./ui/static directory.
-	fileServer := http.FileServer(http.Dir("./ui/static/"))
-	// Use the mux.Handle() function to register the file server as the handler for
-	mux.Handle("GET /static/", http.StripPrefix("/static", fileServer))
+
+	mux.Handle("GET /static/", http.FileServerFS(ui.Files))
+
+	mux.HandleFunc("GET /ping", ping)
 
 	dynamic := alice.New(app.sessionManager.LoadAndSave, noSurf, app.authenticate)
 

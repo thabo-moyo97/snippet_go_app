@@ -66,7 +66,6 @@ func main() {
 	sessionManager.Store = mysqlstore.New(db)
 	sessionManager.Lifetime = 15 * time.Minute // 10 minutes
 	sessionManager.Cookie.Secure = true
-
 	app := application{
 		logger:         logger,
 		snippets:       &models.SnippetModel{DB: db},
