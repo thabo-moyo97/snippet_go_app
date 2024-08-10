@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"github.com/justinas/nosurf"
 	"net/http"
 )
 
@@ -38,19 +40,71 @@ func (app *application) logRequest(next http.Handler) http.Handler {
 	})
 }
 
+/**
+ * The recoverPanic middleware is used to recover from any panics that occur during the request/response cycle.
+ */
 func (app *application) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Create a deferred function (which will always be run in the event
-		// of a panic as Go unwinds the stack).
 		defer func() {
 			if err := recover(); err != nil {
-				// Set a "Connection: close" header on the response.
 				w.Header().Set("Connection", "close")
-				// Call the app.serverError helper method to return a 500
-				// Internal Server response.
+
 				app.serverError(w, r, fmt.Errorf("%s", err))
 			}
 		}()
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+/**
+ * handler wrapper to check if the user is authenticated before allowing access to the handler.
+ */
+func (app *application) requireAuthentication(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !app.isAuthenticated(r) {
+			app.sessionManager.Put(r.Context(), "flash", "You must be authenticated to access this page.")
+			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+			return
+		}
+
+		w.Header().Add("Cache-Control", "no-store")
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// CSRF protection middleware
+func noSurf(next http.Handler) http.Handler {
+	csrfHandler := nosurf.New(next)
+	csrfHandler.SetBaseCookie(http.Cookie{
+		HttpOnly: true,
+		Path:     "/",
+		Secure:   true,
+	})
+
+	return csrfHandler
+}
+
+func (app *application) authenticate(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		id := app.sessionManager.GetInt(r.Context(), "authenticatedUserID")
+		if id == 0 {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		exists, err := app.users.Exists(id)
+		if err != nil {
+			app.serverError(w, r, err)
+			return
+		}
+
+		if exists {
+			ctx := context.WithValue(r.Context(), isAuthenticatedContextKey, true)
+			r = r.WithContext(ctx)
+		}
 
 		next.ServeHTTP(w, r)
 	})

@@ -11,14 +11,20 @@ import (
 // Validator Define a new Validator struct which contains a map of validation error messages
 // for our form fields.
 type Validator struct {
-	FieldErrors map[string][]string
+	NonFieldErrors []string
+	FieldErrors    map[string][]string
 }
 
 var EmailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
 
-// Valid Valid() returns true if the FieldErrors map doesn't contain any entries.
 func (v *Validator) Valid() bool {
-	return len(v.FieldErrors) == 0
+	return len(v.FieldErrors) == 0 && len(v.NonFieldErrors) == 0
+}
+
+// AddNonFieldError Create an AddNonFieldError() helper for adding error messages to the new
+// NonFieldErrors slice.
+func (v *Validator) AddNonFieldError(message string) {
+	v.NonFieldErrors = append(v.NonFieldErrors, message)
 }
 
 // Matches Matches() returns true if a value matches a provided compiled regular

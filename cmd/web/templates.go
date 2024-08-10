@@ -13,12 +13,14 @@ func humanDate(t time.Time) string {
 }
 
 type templateData struct {
-	Snippet      models.Snippet
-	Snippets     []models.Snippet
-	CurrentYear  int
-	ErrorMessage string
-	Form         any
-	Flash        string
+	Snippet         models.Snippet
+	Snippets        []models.Snippet
+	CurrentYear     int
+	ErrorMessage    string
+	Form            any
+	Flash           string
+	IsAuthenticated bool
+	CSRFToken       string // Add a CSRFToken field.
 }
 
 var functions = template.FuncMap{

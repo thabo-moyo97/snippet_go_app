@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/go-playground/form/v4" // New import
+	"github.com/justinas/nosurf"
 	"log/slog"
 	"net/http"
 	"regexp"
@@ -88,8 +89,10 @@ func (app *application) render(w http.ResponseWriter, r *http.Request, status in
 
 func (app *application) newTemplateData(r *http.Request) templateData {
 	return templateData{
-		CurrentYear: time.Now().Year(),
-		Flash:       app.sessionManager.PopString(r.Context(), "flash"),
+		CurrentYear:     time.Now().Year(),
+		Flash:           app.sessionManager.PopString(r.Context(), "flash"),
+		IsAuthenticated: app.isAuthenticated(r),
+		CSRFToken:       nosurf.Token(r),
 	}
 }
 
@@ -105,10 +108,7 @@ func (app *application) decodePostForm(r *http.Request, dst any) error {
 	// the first parameter.
 	err = app.formDecoder.Decode(dst, r.PostForm)
 	if err != nil {
-		// If we try to use an invalid target destination, the Decode() method
-		// will return an error with the type *form.InvalidDecoderError.We use
-		// errors.As() to check for this and raise a panic rather than returning
-		// the error.
+
 		var invalidDecoderError *form.InvalidDecoderError
 
 		if errors.As(err, &invalidDecoderError) {
@@ -120,4 +120,13 @@ func (app *application) decodePostForm(r *http.Request, dst any) error {
 	}
 
 	return nil
+}
+
+func (app *application) isAuthenticated(r *http.Request) bool {
+	isAuthenticated, ok := r.Context().Value(isAuthenticatedContextKey).(bool)
+	if !ok {
+		return false
+	}
+
+	return isAuthenticated
 }

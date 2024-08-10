@@ -26,12 +26,13 @@ type neuteredFileSystem struct {
 }
 
 type application struct {
-	logger         *slog.Logger
-	snippets       *models.SnippetModel
-	users          *models.UserModel
-	templateCache  map[string]*template.Template
-	formDecoder    *form.Decoder
-	sessionManager *scs.SessionManager
+	logger          *slog.Logger
+	snippets        *models.SnippetModel
+	users           *models.UserModel
+	templateCache   map[string]*template.Template
+	formDecoder     *form.Decoder
+	sessionManager  *scs.SessionManager
+	IsAuthenticated bool
 }
 
 func main() {
