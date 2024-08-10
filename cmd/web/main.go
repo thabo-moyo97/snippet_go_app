@@ -1,6 +1,8 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
 	"flag"
 	"github.com/alexedwards/scs/mysqlstore"
@@ -26,6 +28,7 @@ type neuteredFileSystem struct {
 type application struct {
 	logger         *slog.Logger
 	snippets       *models.SnippetModel
+	users          *models.UserModel
 	templateCache  map[string]*template.Template
 	formDecoder    *form.Decoder
 	sessionManager *scs.SessionManager
@@ -60,11 +63,13 @@ func main() {
 
 	sessionManager := scs.New()
 	sessionManager.Store = mysqlstore.New(db)
-	sessionManager.Lifetime = 10 * time.Minute // 10 minutes
+	sessionManager.Lifetime = 15 * time.Minute // 10 minutes
+	sessionManager.Cookie.Secure = true
 
 	app := application{
 		logger:         logger,
 		snippets:       &models.SnippetModel{DB: db},
+		users:          &models.UserModel{DB: db},
 		templateCache:  templateCache,
 		formDecoder:    form.NewDecoder(),
 		sessionManager: sessionManager,
@@ -72,10 +77,42 @@ func main() {
 
 	logger.Info("starting server on port", slog.Any("port", *port))
 
+	// Load the TLS certificate and key files
+	cert, err := tls.LoadX509KeyPair("./tls/cert.pem", "./tls/key.pem")
+	if err != nil {
+		logger.Error("Failed to load TLS certificate and key: " + err.Error())
+		os.Exit(1)
+	}
+
+	// Load the CA certificate
+	caCert, err := os.ReadFile("./tls/ca.pem")
+	if err != nil {
+		logger.Error("Failed to load CA certificate: " + err.Error())
+		os.Exit(1)
+	}
+
+	// Create a new CertPool and add the CA certificate
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		logger.Error("Failed to append CA certificate")
+		os.Exit(1)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates:     []tls.Certificate{cert},
+		RootCAs:          caCertPool,
+		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
+	}
+
 	srv := &http.Server{
-		Addr:     ":" + strconv.Itoa(*port),
-		Handler:  app.routes(),
-		ErrorLog: slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		Addr:           ":" + strconv.Itoa(*port),
+		Handler:        app.routes(),
+		ErrorLog:       slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		TLSConfig:      tlsConfig,
+		IdleTimeout:    time.Minute,
+		ReadTimeout:    5 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 524288,
 	}
 
 	err = srv.ListenAndServeTLS("./tls/cert.pem", "./tls/key.pem")

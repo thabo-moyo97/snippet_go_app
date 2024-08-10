@@ -2,6 +2,7 @@ package validator
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"unicode/utf8"
@@ -13,9 +14,17 @@ type Validator struct {
 	FieldErrors map[string][]string
 }
 
+var EmailRX = regexp.MustCompile("^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$")
+
 // Valid Valid() returns true if the FieldErrors map doesn't contain any entries.
 func (v *Validator) Valid() bool {
 	return len(v.FieldErrors) == 0
+}
+
+// Matches Matches() returns true if a value matches a provided compiled regular
+// expression pattern.
+func Matches(value string, rx *regexp.Regexp) bool {
+	return rx.MatchString(value)
 }
 
 // AddFieldError AddFieldError() adds an error message to the FieldErrors map (so long as no
