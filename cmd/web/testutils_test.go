@@ -8,11 +8,12 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"testing"
+	"thabomoyo.co.uk/cmd/web/config"
 )
 
-func newTestApplication(t *testing.T) *application {
-	return &application{
-		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+func newTestApplication(t *testing.T) *config.Application {
+	return &config.Application{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
 

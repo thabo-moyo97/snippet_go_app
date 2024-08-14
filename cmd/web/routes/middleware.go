@@ -1,10 +1,11 @@
-package main
+package routes
 
 import (
 	"context"
 	"fmt"
 	"github.com/justinas/nosurf"
 	"net/http"
+	"thabomoyo.co.uk/cmd/web/config"
 )
 
 func commonHeaders(next http.Handler) http.Handler {
@@ -25,7 +26,7 @@ func commonHeaders(next http.Handler) http.Handler {
 	})
 }
 
-func (app *application) logRequest(next http.Handler) http.Handler {
+func (route *RouteResource) logRequest(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var (
 			ip     = r.RemoteAddr
@@ -34,7 +35,7 @@ func (app *application) logRequest(next http.Handler) http.Handler {
 			uri    = r.URL.RequestURI()
 		)
 
-		app.logger.Info("received request", "ip", ip, "proto", proto, "method", method, "uri", uri)
+		route.app.Logger.Info("received request", "ip", ip, "proto", proto, "method", method, "uri", uri)
 
 		next.ServeHTTP(w, r)
 	})
@@ -43,13 +44,13 @@ func (app *application) logRequest(next http.Handler) http.Handler {
 /**
  * The recoverPanic middleware is used to recover from any panics that occur during the request/response cycle.
  */
-func (app *application) recoverPanic(next http.Handler) http.Handler {
+func (route *RouteResource) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
 				w.Header().Set("Connection", "close")
 
-				app.serverError(w, r, fmt.Errorf("%s", err))
+				route.app.ServerError(w, r, fmt.Errorf("%s", err))
 			}
 		}()
 
@@ -60,10 +61,10 @@ func (app *application) recoverPanic(next http.Handler) http.Handler {
 /**
  * handler wrapper to check if the user is authenticated before allowing access to the handler.
  */
-func (app *application) requireAuthentication(next http.Handler) http.Handler {
+func (route *RouteResource) requireAuthentication(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !app.isAuthenticated(r) {
-			app.sessionManager.Put(r.Context(), "flash", "You must be authenticated to access this page.")
+		if !route.app.IsAuthenticated(r) {
+			route.app.SessionManager.Put(r.Context(), "flash", "You must be authenticated to access this page.")
 			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 			return
 		}
@@ -86,23 +87,22 @@ func noSurf(next http.Handler) http.Handler {
 	return csrfHandler
 }
 
-func (app *application) authenticate(next http.Handler) http.Handler {
+func (route *RouteResource) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		id := app.sessionManager.GetInt(r.Context(), "authenticatedUserID")
+		id := route.app.SessionManager.GetInt(r.Context(), "authenticatedUserID")
 		if id == 0 {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		exists, err := app.users.Exists(id)
+		exists, err := route.app.Users.Exists(id)
 		if err != nil {
-			app.serverError(w, r, err)
+			route.app.ServerError(w, r, err)
 			return
 		}
 
 		if exists {
-			ctx := context.WithValue(r.Context(), isAuthenticatedContextKey, true)
+			ctx := context.WithValue(r.Context(), config.IsAuthenticatedContextKey, true)
 			r = r.WithContext(ctx)
 		}
 
