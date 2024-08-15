@@ -139,7 +139,7 @@ func (u *UserHandler) UserLogoutPost(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
 
-func (u UserHandler) UserAccountView(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) UserAccountView(w http.ResponseWriter, r *http.Request) {
 	data := u.App.NewTemplateData(r)
 
 	id := u.App.SessionManager.Get(r.Context(), "authenticatedUserID")
