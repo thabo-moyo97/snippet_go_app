@@ -9,7 +9,6 @@ import (
 
 type RouteResource struct {
 	app *config.Application
-	mux *http.ServeMux
 }
 
 func cacheControlFileServer(fs http.FileSystem) http.Handler {
@@ -35,7 +34,7 @@ func Routes(app *config.Application) http.Handler {
 		app: app,
 	}
 
-	mux.Handle("/{$}", routeResources.SnippetRoutes(mux))
+	mux.Handle("/", routeResources.SnippetRoutes(mux))
 	mux.Handle("/user/", http.StripPrefix("/user", routeResources.UserRoutes(mux)))
 
 	standard := alice.New(routeResources.recoverPanic, routeResources.logRequest, commonHeaders)

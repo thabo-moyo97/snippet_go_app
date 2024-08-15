@@ -18,10 +18,16 @@ type SnippetModel struct {
 	DB *sql.DB
 }
 
+type SnippetModelInterface interface {
+	Insert(title, content string, expires int) (int, error)
+	Get(id int) (User, error)
+	Latest() ([]Snippet, error)
+}
+
 func (m *SnippetModel) Get(id int) (Snippet, error) {
 	var s Snippet
 	//scan the row data into the Snippet struct
-	err := m.DB.QueryRow("SELECT * FROM snippets WHERE id = ?", id).Scan(&s.ID, &s.Title, &s.Content, &s.Created, &s.Expires)
+	err := m.DB.QueryRow("SELECT id, title, content, created, expires FROM snippets WHERE id = ?", id).Scan(&s.ID, &s.Title, &s.Content, &s.Created, &s.Expires)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
