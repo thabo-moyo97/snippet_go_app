@@ -29,6 +29,7 @@ type neuteredFileSystem struct {
 func main() {
 	port := flag.Int("port", 8888, "Port to run the server on")
 	dsn := flag.String("dsn", "web:pass@/snippetbox?parseTime=true", "MySQL data source name")
+	debug := flag.Bool("debug", false, "Enable debug mode")
 	flag.Parse()
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
@@ -60,6 +61,7 @@ func main() {
 		TemplateCache:  templateCache,
 		FormDecoder:    form.NewDecoder(),
 		SessionManager: &sessionManager,
+		DebugMode:      *debug,
 	}
 
 	logger.Info("starting server on port", slog.Any("port", *port))

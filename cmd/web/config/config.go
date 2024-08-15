@@ -8,12 +8,10 @@ import (
 	"github.com/go-playground/form/v4"
 	"github.com/justinas/nosurf"
 	"html/template"
-	"io/fs"
 	"log/slog"
 	"net/http"
-	"path/filepath"
+	"runtime/debug"
 	"thabomoyo.co.uk/internal/models"
-	"thabomoyo.co.uk/ui"
 	"time"
 )
 
@@ -25,6 +23,7 @@ type Application struct {
 	FormDecoder    *form.Decoder
 	SessionManager *scs.SessionManager
 	Authenticated  bool
+	DebugMode      bool
 }
 
 type TemplateData struct {
@@ -36,30 +35,25 @@ type TemplateData struct {
 	Flash           string
 	IsAuthenticated bool
 	CSRFToken       string
+	User            models.User
 }
 
 type contextKey string
 
 const IsAuthenticatedContextKey = contextKey("isAuthenticated")
 
-var functions = template.FuncMap{
-	"humanDate": humanDate,
-}
-
-func humanDate(t time.Time) string {
-	if t.IsZero() {
-		return ""
-	}
-
-	return t.UTC().Format("02 Jan 2006 at 15:04")
-}
-
 func (app *Application) ServerError(w http.ResponseWriter, r *http.Request, err error) {
 	var (
 		method = r.Method
 		uri    = r.URL.RequestURI()
+		trace  = string(debug.Stack())
 	)
-	panic(err)
+
+	if app.DebugMode {
+		body := fmt.Sprintf("%s\n%s", err, trace)
+		http.Error(w, body, http.StatusInternalServerError)
+		return
+	}
 	app.Logger.Error(err.Error(), "method", method, "uri", uri)
 	http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 }
@@ -96,6 +90,7 @@ func (app *Application) NewTemplateData(r *http.Request) TemplateData {
 		Flash:           app.SessionManager.PopString(r.Context(), "flash"),
 		IsAuthenticated: app.IsAuthenticated(r),
 		CSRFToken:       nosurf.Token(r),
+		User:            models.User{},
 	}
 }
 
@@ -127,34 +122,6 @@ func (app *Application) IsAuthenticated(r *http.Request) bool {
 	}
 
 	return isAuthenticated
-}
-
-func NewTemplateCache() (map[string]*template.Template, error) {
-	cache := map[string]*template.Template{}
-
-	pages, err := fs.Glob(ui.Files, "html/pages/*.tmpl")
-	if err != nil {
-		return nil, err
-	}
-
-	for _, page := range pages {
-		name := filepath.Base(page)
-
-		patterns := []string{
-			"html/base.tmpl",
-			"html/partials/*.tmpl",
-			page,
-		}
-
-		ts, err := template.New(name).Funcs(functions).ParseFS(ui.Files, patterns...)
-		if err != nil {
-			return nil, err
-		}
-
-		cache[name] = ts
-	}
-
-	return cache, nil
 }
 
 func (app *Application) RecoverPanic(next http.Handler) http.Handler {

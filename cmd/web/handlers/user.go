@@ -138,3 +138,26 @@ func (u *UserHandler) UserLogoutPost(w http.ResponseWriter, r *http.Request) {
 
 	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
+
+func (u UserHandler) UserAccountView(w http.ResponseWriter, r *http.Request) {
+	data := u.App.NewTemplateData(r)
+
+	id := u.App.SessionManager.Get(r.Context(), "authenticatedUserID")
+
+	user, err := u.App.Users.Get(id.(int))
+
+	if err != nil {
+		if errors.Is(models.ErrNoRecord, err) {
+			u.App.SessionManager.Put(r.Context(), "flash", "User not found")
+			http.Redirect(w, r, "/user/login", http.StatusSeeOther)
+			return
+		}
+
+		u.App.ServerError(w, r, err)
+		return
+	}
+
+	data.User = user
+
+	u.App.Render(w, r, http.StatusOK, "account.tmpl", data)
+}
