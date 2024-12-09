@@ -3,15 +3,16 @@ package routes
 import (
 	"context"
 	"fmt"
-	"github.com/justinas/nosurf"
 	"net/http"
+
+	"github.com/justinas/nosurf"
 	"thabomoyo.co.uk/cmd/web/config"
 )
 
 func commonHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		headers := map[string]string{
-			"Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src fonts.gstatic.com",
+			"Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline' fonts.googleapis.com; font-src 'self' fonts.gstatic.com; script-src 'self' 'unsafe-inline'; img-src 'self'",
 			"Referrer-Policy":         "origin-when-cross-origin",
 			"X-Content-Type-Options":  "nosniff",
 			"X-Frame-Options":         "deny",

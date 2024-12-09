@@ -1,0 +1,35 @@
+name: snippet_app_prod
+
+services:
+  app:
+    extends:
+      file: docker-compose.yml
+      service: app
+    build:
+      context: ../..
+      dockerfile: .docker/Dockerfile.prod
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+  db:
+    extends:
+      file: docker-compose.yml
+      service: db
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1G
+
+volumes:
+  go-modules:
+  mysql-data:
+
+networks:
+  snippet_network:
+    driver: bridge

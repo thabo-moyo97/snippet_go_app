@@ -34,3 +34,9 @@ Thumbs.db
 *.key
 *.pem
 tls/
+
+# Migration temporary files
+*.sql~
+
+# Environment variables
+.env

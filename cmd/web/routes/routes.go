@@ -1,8 +1,9 @@
 package routes
 
 import (
-	"github.com/justinas/alice"
 	"net/http"
+
+	"github.com/justinas/alice"
 	"thabomoyo.co.uk/cmd/web/config"
 	"thabomoyo.co.uk/ui"
 )
@@ -13,30 +14,48 @@ type RouteResource struct {
 
 func cacheControlFileServer(fs http.FileSystem) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set cache control headers
-		w.Header().Set("Cache-Control", "public, max-age=31536000") // 1 year
+		f, err := fs.Open(r.URL.Path)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		defer f.Close()
+
+		w.Header().Set("Cache-Control", "public, max-age=31536000")
+
 		http.FileServer(fs).ServeHTTP(w, r)
 	})
 }
 
 func Routes(app *config.Application) http.Handler {
+	routeResources := &RouteResource{app: app}
+
+	fileServer := cacheControlFileServer(http.FS(ui.Files))
+	staticHandler := http.StripPrefix("/static", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.URL.Path = "/static" + r.URL.Path
+		fileServer.ServeHTTP(w, r)
+	}))
+
 	mux := http.NewServeMux()
 
-	//TODO - Add a redirect route for http requests to https
+	mux.Handle("GET /static/", staticHandler)
 
-	mux.Handle("/static/", cacheControlFileServer(http.FS(ui.Files)))
+	dynamic := alice.New(
+		routeResources.recoverPanic,
+		routeResources.logRequest,
+		commonHeaders,
+		app.SessionManager.LoadAndSave,
+		noSurf,
+		routeResources.authenticate,
+	)
 
-	mux.HandleFunc("GET /ping", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
+	protected := dynamic.Append(routeResources.requireAuthentication)
 
-	routeResources := &RouteResource{
-		app: app,
-	}
+	snippetRoutes := routeResources.SnippetRoutes(protected, dynamic)
+	userRoutes := routeResources.UserRoutes(protected, dynamic)
 
-	mux.Handle("/", routeResources.SnippetRoutes(mux))
-	mux.Handle("/user/", http.StripPrefix("/user", routeResources.UserRoutes(mux)))
+	mux.Handle("/", snippetRoutes)
+	mux.Handle("/user/", http.StripPrefix("/user", userRoutes))
 
-	standard := alice.New(routeResources.recoverPanic, routeResources.logRequest, commonHeaders)
-	return standard.Then(mux)
+	return mux
 }

@@ -3,18 +3,20 @@ package models
 import (
 	"database/sql"
 	"errors"
-	"github.com/go-sql-driver/mysql"
-	"golang.org/x/crypto/bcrypt"
 	"strings"
 	"time"
+
+	"github.com/go-sql-driver/mysql"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
-	ID             int
-	Name           string
-	Email          string
-	HashedPassword []byte
-	Created        time.Time
+	ID           int
+	Name         string
+	Email        string
+	PasswordHash []byte
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }
 
 type UserModelInterface interface {
@@ -31,9 +33,9 @@ type UserModel struct {
 func (m *UserModel) Get(id int) (User, error) {
 	var u User
 
-	stmt := "SELECT id, name, email, created FROM users WHERE id = ?"
+	stmt := "SELECT id, name, email, created_at FROM users WHERE id = ?"
 
-	err := m.DB.QueryRow(stmt, id).Scan(&u.ID, &u.Name, &u.Email, &u.Created)
+	err := m.DB.QueryRow(stmt, id).Scan(&u.ID, &u.Name, &u.Email, &u.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return User{}, ErrNoRecord
@@ -49,7 +51,7 @@ func (m *UserModel) Authenticate(email, password string) (int, error) {
 	var id int
 	var hashedPassword []byte
 
-	stmt := "SELECT id, hashed_password FROM users WHERE email = ?"
+	stmt := "SELECT id, password_hash FROM users WHERE email = ?"
 
 	err := m.DB.QueryRow(stmt, email).Scan(&id, &hashedPassword)
 	if err != nil {
@@ -78,7 +80,7 @@ func (m *UserModel) Insert(name, email, password string) error {
 		return err
 	}
 
-	stmt := `INSERT INTO users (name, email, hashed_password, created)
+	stmt := `INSERT INTO users (name, email, password_hash, created_at)
     VALUES(?, ?, ?, UTC_TIMESTAMP())`
 
 	_, err = m.DB.Exec(stmt, name, email, string(hashedPassword))

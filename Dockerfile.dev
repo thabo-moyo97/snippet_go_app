@@ -1,0 +1,30 @@
+FROM golang:1.23-alpine
+
+WORKDIR /app
+
+# Install essential build dependencies
+RUN apk add --no-cache \
+    git \
+    gcc \
+    musl-dev \
+    build-base \
+    mysql-client \
+    curl \
+    tzdata
+
+# Install development tools
+RUN go install github.com/air-verse/air@latest && \
+    go install github.com/go-delve/delve/cmd/dlv@latest
+
+# Copy go.mod and go.sum first for better caching
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy the entire project
+COPY . .
+
+# Ensure the start script is executable
+RUN chmod +x .docker/scripts/start-dev.sh && \
+    ln -sf .docker/scripts/start-dev.sh ./start-dev.sh
+
+EXPOSE ${APP_PORT} ${DEBUG_PORT}

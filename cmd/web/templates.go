@@ -3,9 +3,11 @@ package main
 import (
 	"html/template"
 	"io/fs"
+	"log"
 	"path/filepath"
-	"thabomoyo.co.uk/ui"
 	"time"
+
+	"thabomoyo.co.uk/ui"
 
 	"thabomoyo.co.uk/internal/models"
 )
@@ -38,11 +40,13 @@ func newTemplateCache() (map[string]*template.Template, error) {
 
 	pages, err := fs.Glob(ui.Files, "html/pages/*.tmpl")
 	if err != nil {
+		log.Printf("Error finding template pages: %v", err)
 		return nil, err
 	}
 
 	for _, page := range pages {
 		name := filepath.Base(page)
+		log.Printf("Processing template: %s", name)
 
 		patterns := []string{
 			"html/base.tmpl",
@@ -52,6 +56,7 @@ func newTemplateCache() (map[string]*template.Template, error) {
 
 		ts, err := template.New(name).Funcs(functions).ParseFS(ui.Files, patterns...)
 		if err != nil {
+			log.Printf("Error parsing template %s: %v", name, err)
 			return nil, err
 		}
 

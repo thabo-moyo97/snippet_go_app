@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+
 	"thabomoyo.co.uk/cmd/web/config"
 	"thabomoyo.co.uk/internal/models"
 	"thabomoyo.co.uk/internal/validator"
@@ -26,6 +27,7 @@ func (s *SnippetHandler) Home(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		s.App.ServerError(w, r, err)
+		fmt.Println(err)
 		return
 	}
 	data := s.App.NewTemplateData(r)

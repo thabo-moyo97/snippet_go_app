@@ -1,0 +1,60 @@
+name: snippet_app
+
+services:
+  app:
+    build: 
+      context: .
+    container_name: app
+    volumes:
+      - .:/app
+      - go-modules:/go/pkg/mod
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+      - "${DEBUG_PORT}:${DEBUG_PORT}"
+    environment:
+      - CGO_ENABLED=${CGO_ENABLED}
+      - MODE=${APP_MODE}
+      - DB_HOST=${DB_HOST}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - APP_PORT=${APP_PORT}
+      - DEBUG_PORT=${DEBUG_PORT}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - snippet_network
+    tty: true
+    stdin_open: true
+
+  db:
+    container_name: db
+    image: mysql:8.3
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${DB_NAME}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 2s
+      timeout: 2s
+      retries: 10
+      start_period: 10s
+    command: ['mysqld', '--character-set-server=utf8mb4', '--collation-server=utf8mb4_unicode_ci']
+    networks:
+      - snippet_network
+
+volumes:
+  go-modules:
+  mysql-data:
+
+networks:
+  snippet_network:
+    driver: bridge 

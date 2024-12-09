@@ -3,6 +3,7 @@ package handlers
 import (
 	"errors"
 	"net/http"
+
 	"thabomoyo.co.uk/cmd/web/config"
 	"thabomoyo.co.uk/internal/models"
 	"thabomoyo.co.uk/internal/validator"
@@ -158,6 +159,5 @@ func (u *UserHandler) UserAccountView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data.User = user
-
 	u.App.Render(w, r, http.StatusOK, "account.tmpl", data)
 }

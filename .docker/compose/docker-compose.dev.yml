@@ -1,0 +1,52 @@
+name: snippet_app_dev
+
+services:
+  app:
+    env_file: ../../.env
+    extends:
+      file: ../../common-services.yml
+      service: app
+    command: sh -c "chmod +x /app/.docker/scripts/start-dev.sh && /app/.docker/scripts/start-dev.sh ${DEBUG:+--debug}"
+    build: 
+      context: ../..
+      dockerfile: Dockerfile.dev
+    security_opt:
+      - seccomp:unconfined
+    cap_add:
+      - SYS_PTRACE
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+      - "${DEBUG_PORT}:${DEBUG_PORT}"
+    volumes:
+      - ../../:/app
+      - go-modules:/go/pkg/mod
+    tty: true
+    stdin_open: true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  db:
+    env_file: ../../.env
+    extends:
+      file: ../../common-services.yml
+      service: db
+    build:
+      context: ../..
+      dockerfile: Dockerfile.dev
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  go-modules:
+  mysql-data:
+
+networks:
+  snippet_network:
+    driver: bridge
+

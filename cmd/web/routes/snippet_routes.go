@@ -1,22 +1,24 @@
 package routes
 
 import (
-	"github.com/justinas/alice"
 	"net/http"
+
+	"github.com/justinas/alice"
 	"thabomoyo.co.uk/cmd/web/handlers"
 )
 
-func (route *RouteResource) SnippetRoutes(mux *http.ServeMux) http.Handler {
-	protected := alice.New(route.app.SessionManager.LoadAndSave, noSurf, route.authenticate, route.requireAuthentication)
+func (rr *RouteResource) SnippetRoutes(protected, dynamic alice.Chain) http.Handler {
+	mux := http.NewServeMux()
 
-	snippetResource := &handlers.SnippetHandler{
-		App: route.app,
-	}
+	snippetHandler := &handlers.SnippetHandler{App: rr.app}
 
-	mux.Handle("GET /{$}", protected.ThenFunc(snippetResource.Home))
-	mux.Handle("GET /snippet/view/{id}", protected.ThenFunc(snippetResource.SnippetView))
-	mux.Handle("GET /snippet/create", protected.ThenFunc(snippetResource.SnippetCreate))
-	mux.Handle("POST /snippet/create", protected.ThenFunc(snippetResource.SnippetCreatePost))
+	// Public routes with dynamic middleware
+	mux.Handle("GET /", dynamic.ThenFunc(snippetHandler.Home))
+	mux.Handle("GET /snippet/view/{id}", dynamic.ThenFunc(snippetHandler.SnippetView))
+
+	// Protected routes
+	mux.Handle("GET /snippet/create", protected.ThenFunc(snippetHandler.SnippetCreate))
+	mux.Handle("POST /snippet/create", protected.ThenFunc(snippetHandler.SnippetCreatePost))
 
 	return mux
 }
