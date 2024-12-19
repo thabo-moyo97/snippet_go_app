@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strconv"
 
-	"thabomoyo.co.uk/cmd/web/config"
 	"thabomoyo.co.uk/internal/models"
+	"thabomoyo.co.uk/internal/services"
 	"thabomoyo.co.uk/internal/validator"
 )
 
@@ -19,21 +19,27 @@ type snippetCreateForm struct {
 }
 
 type SnippetHandler struct {
-	App *config.Application
+	services *services.Services
+}
+
+func NewSnippetHandler(services *services.Services) *SnippetHandler {
+	return &SnippetHandler{
+		services: services,
+	}
 }
 
 func (s *SnippetHandler) Home(w http.ResponseWriter, r *http.Request) {
-	snippets, err := s.App.Snippets.Latest()
-
+	snippets, err := s.services.Snippets.Latest()
 	if err != nil {
-		s.App.ServerError(w, r, err)
-		fmt.Println(err)
+		s.services.Logger.Error("failed to get latest snippets", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	data := s.App.NewTemplateData(r)
+
+	data := s.services.Templates.NewTemplateData(r)
 	data.Snippets = snippets
 
-	s.App.Render(w, r, http.StatusOK, "home.tmpl", data)
+	s.services.Templates.RenderView(w, r, http.StatusOK, "home", data)
 }
 
 func (s *SnippetHandler) SnippetView(w http.ResponseWriter, r *http.Request) {
@@ -43,29 +49,30 @@ func (s *SnippetHandler) SnippetView(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	snippet, err := s.App.Snippets.Get(id)
+	snippet, err := s.services.Snippets.Get(id)
 	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
 			http.NotFound(w, r)
 		} else {
-			s.App.ServerError(w, r, err)
+			s.services.Logger.Error("failed to get snippet", "error", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 		return
 	}
 
-	data := s.App.NewTemplateData(r)
+	data := s.services.Templates.NewTemplateData(r)
 	data.Snippet = snippet
 
-	s.App.Render(w, r, http.StatusOK, "view.tmpl", data)
+	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.view", data)
 }
 
 func (s *SnippetHandler) SnippetCreate(w http.ResponseWriter, r *http.Request) {
-	data := s.App.NewTemplateData(r)
+	data := s.services.Templates.NewTemplateData(r)
 	data.Form = snippetCreateForm{
 		Expires: 7,
 	}
 
-	s.App.Render(w, r, http.StatusOK, "create.tmpl", data)
+	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.create", data)
 }
 
 func (s *SnippetHandler) SnippetCreatePost(w http.ResponseWriter, r *http.Request) {
@@ -73,40 +80,42 @@ func (s *SnippetHandler) SnippetCreatePost(w http.ResponseWriter, r *http.Reques
 
 	err := r.ParseForm()
 	if err != nil {
-		s.App.ClientError(w, http.StatusBadRequest)
+		s.services.Logger.Error("failed to parse form", "error", err)
+		http.Error(w, "Bad Request", http.StatusBadRequest)
 		return
 	}
 
 	var form snippetCreateForm
 
-	err = s.App.FormDecoder.Decode(&form, r.PostForm)
+	err = s.services.Forms.DecodePostForm(r, &form)
 	if err != nil {
-		s.App.ClientError(w, http.StatusBadRequest)
+		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
 		return
 	}
 
 	form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
 	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
 	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
-	form.CheckField(validator.MinChars(form.Content, 10), "content", "This field must be at least 10 characters long")
-	form.CheckField(validator.MinWordCount(form.Content, 5), "content", "This field must contain at least 5 words")
+	form.CheckField(validator.MinChars(form.Content, 5), "content", "This field must be at least 5 characters long")
+	form.CheckField(validator.MinWordCount(form.Content, 3), "content", "This field must contain at least 3 words")
 	form.CheckField(validator.MaxChars(form.Content, 1000), "content", "This field must be less than 1000 characters long")
 	form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
 
 	if !form.Valid() {
-		data := s.App.NewTemplateData(r)
+		data := s.services.Templates.NewTemplateData(r)
 		data.Form = form
-		s.App.Render(w, r, http.StatusUnprocessableEntity, "create.tmpl", data)
+		s.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "snippets.create", data)
 		return
 	}
 
-	id, err := s.App.Snippets.Insert(form.Title, form.Content, form.Expires)
+	id, err := s.services.Snippets.Insert(form.Title, form.Content, form.Expires)
 	if err != nil {
-		s.App.ServerError(w, r, err)
+		s.services.Logger.Error("failed to insert snippet", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	s.App.SessionManager.Put(r.Context(), "flash", "Snippet successfully created!")
+	s.services.Sessions.Put(r.Context(), "flash", "Snippet successfully created!")
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
 }

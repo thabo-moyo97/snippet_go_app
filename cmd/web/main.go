@@ -1,26 +1,30 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"database/sql"
+	"errors"
 	"flag"
+	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/alexedwards/scs/v2"
-	"github.com/go-playground/form/v4"
 
 	_ "github.com/go-playground/form/v4"
 	_ "github.com/go-sql-driver/mysql"
-	"thabomoyo.co.uk/cmd/web/config"
 	"thabomoyo.co.uk/cmd/web/routes"
 	"thabomoyo.co.uk/internal/database"
-	"thabomoyo.co.uk/internal/models"
+	"thabomoyo.co.uk/internal/services"
+	"thabomoyo.co.uk/internal/templatemanager"
 )
 
 type neuteredFileSystem struct {
@@ -46,7 +50,7 @@ func main() {
 	}
 	logger.Info("DB connected")
 
-	// Run migrations
+	//TODO:
 	err = database.RunMigrations(db, logger)
 	if err != nil {
 		logger.Error("Failed to run migrations: " + err.Error())
@@ -55,57 +59,93 @@ func main() {
 
 	defer db.Close()
 
-	templateCache, err := newTemplateCache()
+	sessionManager := scs.New()
+	sessionManager.Store = mysqlstore.New(db)
+	sessionManager.Lifetime = 12 * time.Hour
+	sessionManager.Cookie.Secure = true
+
+	templateManager := templatemanager.NewManager()
+	templateService := services.NewTemplateService(nil, templateManager, sessionManager, logger, *debug)
+
+	templateCache, err := templateService.NewTemplateCache()
 	if err != nil {
-		logger.Error(err.Error())
+		logger.Error("template cache initialisation failed", "error", err)
 		os.Exit(1)
 	}
 
-	sessionManager := *scs.New()
-	sessionManager.Store = mysqlstore.New(db)
-	sessionManager.Lifetime = 15 * time.Minute
-	sessionManager.Cookie.Secure = true
+	services := services.NewServices(
+		db,
+		logger,
+		templateCache,
+		sessionManager,
+		templateManager,
+		*debug,
+	)
 
-	app := config.Application{
-		Logger:         logger,
-		Snippets:       &models.SnippetModel{DB: db},
-		Users:          &models.UserModel{DB: db},
-		TemplateCache:  templateCache,
-		FormDecoder:    form.NewDecoder(),
-		SessionManager: &sessionManager,
-		DebugMode:      *debug,
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	logger.Info("starting server on port", slog.Any("port", *port))
 
 	tlsConfig := &tls.Config{
 		MinVersion:       tls.VersionTLS12,
 		CurvePreferences: []tls.CurveID{tls.X25519, tls.CurveP256},
-		CipherSuites: []uint16{
-			tls.TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-			tls.TLS_ECDHE_ECDSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305,
-			tls.TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
-			tls.TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
-		},
 	}
+
+	rh := routes.NewRouteHandler(services)
 
 	srv := &http.Server{
-		Addr:           "0.0.0.0:" + strconv.Itoa(*port),
-		Handler:        routes.Routes(&app),
-		ErrorLog:       slog.NewLogLogger(logger.Handler(), slog.LevelError),
-		TLSConfig:      tlsConfig,
-		IdleTimeout:    time.Minute,
-		ReadTimeout:    5 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 524288,
+		Addr:         "0.0.0.0:" + strconv.Itoa(*port),
+		Handler:      rh.Routes(),
+		ErrorLog:     slog.NewLogLogger(logger.Handler(), slog.LevelError),
+		TLSConfig:    tlsConfig,
+		IdleTimeout:  time.Minute,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+	}
+	logger.Info("Starting server",
+		slog.String("mode", os.Getenv("APP_MODE")),
+		slog.Bool("debug", *debug),
+		slog.Int("port", *port))
+
+	certFile := os.Getenv("TLS_CERT")
+	keyFile := os.Getenv("TLS_KEY")
+
+	if certFile == "" || keyFile == "" {
+		logger.Error("TLS_CERT and TLS_KEY environment variables must be set")
+		os.Exit(1)
 	}
 
-	logger.Info("Starting server in " + os.Getenv("APP_MODE") + " mode and debug mode is " + strconv.FormatBool(*debug))
-	err = srv.ListenAndServe()
-	logger.Error(err.Error())
-	os.Exit(1)
+	// Start server
+	logger.Info("starting server", "addr", srv.Addr)
+
+	// Graceful shutdown setup
+	shutdownError := make(chan error)
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		s := <-quit
+
+		logger.Info("shutting down server", "signal", s.String())
+
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+
+		shutdownError <- srv.Shutdown(ctx)
+	}()
+
+	err = srv.ListenAndServeTLS(certFile, keyFile)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		logger.Error("server error", "error", err)
+		os.Exit(1)
+	}
+
+	err = <-shutdownError
+	if err != nil {
+		logger.Error("server shutdown error", "error", err)
+		os.Exit(1)
+	}
+
+	logger.Info("stopped server", "addr", srv.Addr)
 }
 
 func openDB(dsn string) (*sql.DB, error) {
@@ -116,8 +156,18 @@ func openDB(dsn string) (*sql.DB, error) {
 
 	err = db.Ping()
 	if err != nil {
-		db.Close()
-		return nil, err
+		// Retry connection up to 3 more times with 2 second delay
+		for i := 0; i < 3; i++ {
+			time.Sleep(2 * time.Second)
+			err = db.Ping()
+			if err == nil {
+				break
+			}
+		}
+		if err != nil {
+			db.Close()
+			return nil, err
+		}
 	}
 
 	return db, nil

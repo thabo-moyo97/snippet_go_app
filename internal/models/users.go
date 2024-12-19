@@ -3,7 +3,6 @@ package models
 import (
 	"database/sql"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -88,7 +87,7 @@ func (m *UserModel) Insert(name, email, password string) error {
 
 		var mySQLError *mysql.MySQLError
 		if errors.As(err, &mySQLError) {
-			if mySQLError.Number == 1062 && strings.Contains(mySQLError.Message, "users_uc_email") {
+			if mySQLError.Number == 1062 {
 				return ErrDuplicateEmail
 			}
 		}

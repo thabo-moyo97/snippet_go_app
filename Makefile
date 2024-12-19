@@ -50,7 +50,8 @@ build-prod:
 start-debug: 
 	DEBUG=true docker compose --env-file .env -f .docker/compose/docker-compose.dev.yml up --remove-orphans --force-recreate
 
-
+tailwind:
+	cd ./ui && npm run build
 
 .DEFAULT_GOAL := dev
 

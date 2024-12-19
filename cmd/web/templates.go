@@ -1,15 +1,17 @@
 package main
 
 import (
+	"fmt"
 	"html/template"
 	"io/fs"
 	"log"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"thabomoyo.co.uk/ui"
 
 	"thabomoyo.co.uk/internal/models"
+	"thabomoyo.co.uk/internal/templatemanager"
 )
 
 func humanDate(t time.Time) string {
@@ -35,28 +37,40 @@ var functions = template.FuncMap{
 	"humanDate": humanDate,
 }
 
-func newTemplateCache() (map[string]*template.Template, error) {
+func newTemplateCache(templateManager *templatemanager.Manager) (map[string]*template.Template, error) {
 	cache := map[string]*template.Template{}
 
-	pages, err := fs.Glob(ui.Files, "html/pages/*.tmpl")
+	var pages []string
+	err := fs.WalkDir(ui.Files, "html", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if !d.IsDir() {
+			for _, ext := range templateManager.GetExtensions() {
+				if strings.HasSuffix(path, ext) {
+					pages = append(pages, path)
+					break
+				}
+			}
+		}
+		return nil
+	})
 	if err != nil {
-		log.Printf("Error finding template pages: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("error walking templates directory: %w", err)
 	}
 
 	for _, page := range pages {
-		name := filepath.Base(page)
+		name := templateManager.NormaliseTemplateName(page)
 		log.Printf("Processing template: %s", name)
 
 		patterns := []string{
-			"html/base.tmpl",
-			"html/partials/*.tmpl",
+			"html/base.html",
+			"html/partials/*.html",
 			page,
 		}
 
 		ts, err := template.New(name).Funcs(functions).ParseFS(ui.Files, patterns...)
 		if err != nil {
-			log.Printf("Error parsing template %s: %v", name, err)
 			return nil, err
 		}
 

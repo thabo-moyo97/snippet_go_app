@@ -7,10 +7,10 @@ import (
 	"thabomoyo.co.uk/cmd/web/handlers"
 )
 
-func (rr *RouteResource) UserRoutes(protected, dynamic alice.Chain) http.Handler {
+func (rh *RouteHandler) UserRoutes(protected, dynamic alice.Chain) http.Handler {
 	mux := http.NewServeMux()
 
-	userHandler := &handlers.UserHandler{App: rr.app}
+	userHandler := handlers.NewUserHandler(rh.services)
 
 	// Public routes with dynamic middleware
 	mux.Handle("GET /signup", dynamic.ThenFunc(userHandler.UserSignup))

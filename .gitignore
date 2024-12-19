@@ -40,3 +40,8 @@ tls/
 
 # Environment variables
 .env
+
+# Ignore everything in tmp directory
+tmp/*
+
+tmp/

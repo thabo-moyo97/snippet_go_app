@@ -9,11 +9,13 @@ import (
 	"os/signal"
 	"time"
 
+	"log/slog"
+
 	"github.com/lesismal/nbio/nbhttp"
 	"github.com/lesismal/nbio/nbhttp/websocket"
 )
 
-func newUpgrader() *websocket.Upgrader {
+func newUpgrader(logger *slog.Logger) *websocket.Upgrader {
 	u := websocket.NewUpgrader()
 
 	u.CheckOrigin = func(request *http.Request) bool {
@@ -21,40 +23,46 @@ func newUpgrader() *websocket.Upgrader {
 		if err != nil {
 			return false
 		}
-		fmt.Println("CheckOrigin:", host)
+		logger.Info("checking origin", "host", host)
 		return host == "127.0.0.1" || host == "::1"
 	}
 
 	u.OnOpen(func(c *websocket.Conn) {
-		fmt.Println("OnOpen:", c.RemoteAddr().String())
+		logger.Info("websocket opened", "addr", c.RemoteAddr().String())
 	})
 	u.OnMessage(func(c *websocket.Conn, messageType websocket.MessageType, data []byte) {
-		fmt.Println("OnMessage:", messageType, string(data))
+		logger.Info("websocket message received",
+			"type", messageType,
+			"data", string(data))
 		err := c.WriteMessage(messageType, data)
 		if err != nil {
 			return
 		}
 	})
 	u.OnClose(func(c *websocket.Conn, err error) {
-		fmt.Println("OnClose:", c.RemoteAddr().String(), err)
+		logger.Info("websocket closed",
+			"addr", c.RemoteAddr().String(),
+			"error", err)
 	})
 
 	return u
 }
 
-func onWebsocket(w http.ResponseWriter, r *http.Request) {
-	conn, err := newUpgrader().Upgrade(w, r, nil)
+func onWebsocket(w http.ResponseWriter, r *http.Request, logger *slog.Logger) {
+	conn, err := newUpgrader(logger).Upgrade(w, r, nil)
 
 	if err != nil {
-		fmt.Println("Failed:", err)
+		logger.Error("websocket upgrade failed", "error", err)
 	}
-	fmt.Println("Upgraded:", conn.RemoteAddr().String())
+	logger.Info("connection upgraded", "addr", conn.RemoteAddr().String())
 }
 
 func main() {
 	mux := &http.ServeMux{}
 
-	mux.HandleFunc("GET /ws", onWebsocket)
+	mux.HandleFunc("GET /ws", func(w http.ResponseWriter, r *http.Request) {
+		onWebsocket(w, r, slog.Default())
+	})
 
 	engine := nbhttp.NewEngine(nbhttp.Config{
 		Network:                 "tcp",

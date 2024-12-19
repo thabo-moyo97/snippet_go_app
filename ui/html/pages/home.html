@@ -1,0 +1,24 @@
+{{define "title"}}Home{{end}}
+{{define "main"}}
+    <h2 class="text-[22px] mb-[36px] relative -top-[9px]">Latest Snippets</h2>
+    {{if .Snippets}}
+     <table class="w-full bg-white border border-[#E4E5E7] border-collapse">
+        <tr>
+            <th class="text-left p-[9px_18px]">Title</th>
+            <th class="text-left p-[9px_18px]">Created</th>
+            <th class="text-right p-[9px_18px] text-[#6A6C6F]">ID</th>
+        </tr>
+        {{range .Snippets}}
+        <tr class="border-b border-[#E4E5E7] even:bg-[#F7F9FA]">
+            <td class="p-[9px_18px]">
+                <a href='/snippet/view/{{.ID}}' class="text-[#62CB31] hover:text-[#4EB722] hover:underline">{{.Title}}</a>
+            </td>
+            <td class="p-[9px_18px]">{{humanDate .Created}}</td>
+            <td class="text-right p-[9px_18px] text-[#6A6C6F]">#{{.ID}}</td>
+        </tr>
+        {{end}}
+    </table>
+    {{else}}
+        <p class="text-center">There's nothing to see here... yet!</p>
+    {{end}}
+{{end}}

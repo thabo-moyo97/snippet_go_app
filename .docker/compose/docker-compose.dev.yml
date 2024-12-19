@@ -20,6 +20,7 @@ services:
     volumes:
       - ../../:/app
       - go-modules:/go/pkg/mod
+      - ../../tls:/app/tls
     tty: true
     stdin_open: true
     logging:
@@ -27,6 +28,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    environment:
+      - TLS_CERT=${TLS_CERT}
+      - TLS_KEY=${TLS_KEY}
 
   db:
     env_file: ../../.env

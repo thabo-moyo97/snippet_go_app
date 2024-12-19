@@ -1,6 +1,19 @@
 #!/bin/sh
 set -e
 
+# Ensure OpenSSL is installed
+if ! command -v openssl >/dev/null 2>&1; then
+    echo "Installing OpenSSL..."
+    apk add --no-cache openssl
+fi
+
+# Generate certificates if they don't exist
+if [ ! -f "/app/tls/cert.pem" ] || [ ! -f "/app/tls/key.pem" ]; then
+    echo "Generating development certificates..."
+    chmod +x /app/scripts/generate-dev-certs.sh
+    sh /app/scripts/generate-dev-certs.sh
+fi
+
 # Default values
 DEBUG_MODE=0
 
@@ -26,7 +39,6 @@ if [ -f .env ]; then
     . ./.env
     set +a
 fi
-
 
 # Parse command line arguments
 while [ "$#" -gt 0 ]; do

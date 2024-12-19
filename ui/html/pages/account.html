@@ -1,0 +1,21 @@
+{{define "title"}}Your Account{{end}}
+
+{{define "main"}}
+    <h2 class="text-[22px] mb-[36px] relative -top-[9px]">Your Account</h2>
+    {{with .User}}
+        <table class="w-full bg-white border border-[#E4E5E7] border-collapse">
+            <tr class="border-b border-[#E4E5E7]">
+                <th class="text-left p-[9px_18px]">Name</th>
+                <td class="p-[9px_18px]">{{.Name}}</td>
+            </tr>
+            <tr class="border-b border-[#E4E5E7] bg-[#F7F9FA]">
+                <th class="text-left p-[9px_18px]">Email</th>
+                <td class="p-[9px_18px]">{{.Email}}</td>
+            </tr>
+            <tr class="border-b border-[#E4E5E7]">
+                <th class="text-left p-[9px_18px]">Joined</th>
+                <td class="p-[9px_18px]">{{humanDate .CreatedAt}}</td>
+            </tr>
+        </table>
+    {{end}}
+{{end}}

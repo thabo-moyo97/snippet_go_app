@@ -7,10 +7,10 @@ import (
 	"thabomoyo.co.uk/cmd/web/handlers"
 )
 
-func (rr *RouteResource) SnippetRoutes(protected, dynamic alice.Chain) http.Handler {
+func (rh *RouteHandler) SnippetRoutes(protected, dynamic alice.Chain) http.Handler {
 	mux := http.NewServeMux()
 
-	snippetHandler := &handlers.SnippetHandler{App: rr.app}
+	snippetHandler := handlers.NewSnippetHandler(rh.services)
 
 	// Public routes with dynamic middleware
 	mux.Handle("GET /", dynamic.ThenFunc(snippetHandler.Home))

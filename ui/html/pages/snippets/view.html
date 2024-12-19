@@ -1,0 +1,19 @@
+{{define "title"}}Snippet #{{.Snippet.ID}}{{end}}
+
+{{define "main"}}
+    {{with .Snippet}}
+    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
+        <div class="bg-gray-50 text-gray-600 p-4 flex justify-between items-center">
+            <strong class="text-slate-700">{{.Title}}</strong>
+            <a class="btn btn-primary mr-4 px-4 py-2 transition-colors" 
+               href='/snippet/edit?id={{.ID}}'>Edit</a>
+            <span class="text-gray-600">#{{.ID}}</span>
+        </div>
+        <pre class="p-4 border-y border-gray-200"><code>{{.Content}}</code></pre>
+        <div class="bg-gray-50 text-gray-600 p-4 overflow-auto">
+            <time class="float-left">Created: {{humanDate .Created}}</time>
+            <time class="float-right">Expires: {{humanDate .Expires}}</time>
+        </div>
+    </div>
+    {{end}}
+{{end}}
