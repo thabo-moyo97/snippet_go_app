@@ -1,19 +1,48 @@
 {{define "title"}}Snippet #{{.Snippet.ID}}{{end}}
 
 {{define "main"}}
-    {{with .Snippet}}
-    <div class="bg-white border border-gray-200 rounded-lg shadow-sm">
-        <div class="bg-gray-5 p-4 overflow-auto flex justify-between items-center">
-            <strong class="text-slate-700">{{.Title}}</strong>
-            <span class="float-right text-gray-600">#{{.ID}}</span>
-            <a class="btn btn-primary float mr-4" 
-               href='/snippet/edit?id={{.ID}}'>Edit</a>
+   <form action='/snippet/create' method='POST' class="max-w-2xl mx-auto">
+        <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+        <div class="mb-6">
+            <label class="block mb-2">Title:  </label>
+            {{with .Form.FieldErrors.title}}
+                <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
+            {{end}}
+            <input type='text' name='title' value='{{.Form.Title}}'
+                   class="w-full p-3 border border-[#E4E5E7] rounded text-[#6A6C6F]">
         </div>
-        <pre class="p-4 border-y border-gray-200"><code>{{.Content}}</code></pre>
-        <div class="bg-gray-50 text-gray-600 p-4 overflow-auto">
-            <time class="float-left">Created: {{humanDate .Created}}</time>
-            <time class="float-right">Expires: {{humanDate .Expires}}</time>
+        <div class="mb-6">
+            <label class="block mb-2">Content:</label>
+            {{range $field, $errors := .Form.FieldErrors}}
+                {{if eq $field "content"}}
+                    {{range $errors}}
+                        <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
+                    {{end}}
+                {{end}}
+            {{end}}
+            <textarea name='content'
+                      class="w-full p-[18px] h-[266px] border border-[#E4E5E7] rounded text-[#6A6C6F]">{{.Form.Content}}</textarea>
         </div>
-    </div>
-    {{end}}
+        <div class="mb-6">
+            <label class="block mb-2">Delete in:</label>
+            {{with .Form.FieldErrors.expires}}
+                <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
+            {{end}}
+            <div class="space-x-4">
+                <input type='radio' name='expires' value='7' {{if (eq .Form.Expires 7)}}checked{{end}}
+                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Week</span>
+                <input type='radio' name='expires' value='1' {{if (eq .Form.Expires 1)}}checked{{end}}
+                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Day</span>
+                <input type='radio' name='expires' value='365' {{if (eq .Form.Expires 365)}}checked{{end}}
+                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Year</span>
+                <input type='radio' name='expires' value='0' {{if (eq .Form.Expires 0)}}checked{{end}}
+                    class="ml-[18px]"> <span class="text-[#6A6C6F]">Never</span>
+     
+            </div>
+        </div>
+        <div class="mt-6">
+            <input type='submit' value='Publish snippet'
+                   class="bg-[#62CB31] text-black px-7 py-4 rounded font-bold hover:bg-[#4EB722] cursor-pointer">
+        </div>
+    </form>
 {{end}}

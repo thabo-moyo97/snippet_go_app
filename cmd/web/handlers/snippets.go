@@ -45,17 +45,18 @@ func (s *SnippetHandler) Home(w http.ResponseWriter, r *http.Request) {
 func (s *SnippetHandler) SnippetView(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id < 1 {
-		http.NotFound(w, r)
+		s.services.Errors.ServerError(w, r, err)
 		return
 	}
 
 	snippet, err := s.services.Snippets.Get(id)
 	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
-			http.NotFound(w, r)
+			s.services.Errors.ClientError(w, r, http.StatusNotFound)
+			return
 		} else {
 			s.services.Logger.Error("failed to get snippet", "error", err)
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			s.services.Errors.ServerError(w, r, err)
 		}
 		return
 	}
@@ -75,13 +76,29 @@ func (s *SnippetHandler) SnippetCreate(w http.ResponseWriter, r *http.Request) {
 	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.create", data)
 }
 
+func (s *SnippetHandler) SnippetEdit(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil || id < 1 {
+		s.services.Errors.ServerError(w, r, err)
+		return
+	}
+	data := s.services.Templates.NewTemplateData(r)
+	snippet, err := s.services.Snippets.Get(id)
+	data.Form = snippetCreateForm{
+		Title:   snippet.Title,
+		Content: snippet.Content,
+		Expires: 7,
+	}
+
+	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.edit", data)
+}
+
 func (s *SnippetHandler) SnippetCreatePost(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 
 	err := r.ParseForm()
 	if err != nil {
-		s.services.Logger.Error("failed to parse form", "error", err)
-		http.Error(w, "Bad Request", http.StatusBadRequest)
+		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
 		return
 	}
 

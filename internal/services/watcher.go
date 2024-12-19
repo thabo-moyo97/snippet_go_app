@@ -36,7 +36,6 @@ func NewWatcher(templateDir string, templateManager *templatemanager.Manager, te
 		tmplSvc:   templateService,
 	}
 
-	// Watch template directory recursively
 	err = filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err

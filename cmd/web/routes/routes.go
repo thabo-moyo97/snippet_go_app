@@ -79,7 +79,7 @@ func (rh *RouteHandler) Routes() http.Handler {
 		}
 
 		rh.services.Watcher.AddClient(conn)
-		//defer rh.services.Watcher.RemoveClient(conn)
+		//	defer rh.services.Watcher.RemoveClient(conn)
 	})
 
 	return mux

@@ -27,6 +27,7 @@ func (s *ErrorService) ServerError(w http.ResponseWriter, r *http.Request, err e
 		uri    = r.URL.RequestURI()
 		trace  = string(debug.Stack())
 	)
+	s.logger.Error(err.Error(), "method", method, "uri", uri, "trace", trace)
 
 	if s.debugMode {
 		body := fmt.Sprintf("%s\n%s", err, trace)
@@ -34,7 +35,6 @@ func (s *ErrorService) ServerError(w http.ResponseWriter, r *http.Request, err e
 		return
 	}
 
-	s.logger.Error(err.Error(), "method", method, "uri", uri, "trace", trace)
 	data := s.templates.NewTemplateData(r)
 	s.templates.RenderViewError(w, r, http.StatusInternalServerError, data)
 }

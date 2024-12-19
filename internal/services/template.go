@@ -64,13 +64,13 @@ func (s *TemplateService) NewTemplateData(r *http.Request) *TemplateData {
 }
 
 func (s *TemplateService) RenderViewError(w http.ResponseWriter, r *http.Request, status int, data *TemplateData) {
-	ts, ok := s.cache["error"]
-	if !ok {
-		s.logger.Error("the error template does not exist")
+	ts, err := s.getTemplateFile("error")
+	if err != nil {
+		s.logger.Error("the error template does not exist", "error", err)
 		return
 	}
 	buffer := new(bytes.Buffer)
-	err := ts.ExecuteTemplate(buffer, "base", data)
+	err = ts.ExecuteTemplate(buffer, "base", data)
 	if err != nil {
 		s.logger.Error("template execution failed", "error", err)
 		return
@@ -81,18 +81,17 @@ func (s *TemplateService) RenderViewError(w http.ResponseWriter, r *http.Request
 }
 
 func (s *TemplateService) RenderView(w http.ResponseWriter, r *http.Request, status int, page string, data *TemplateData) {
-	fmt.Println("partial", r.URL.Query().Get("partial"))
-
 	page = s.manager.NormaliseTemplateName(page)
-	ts, ok := s.cache[page]
-	if !ok {
+	ts, err := s.getTemplateFile(page)
+	if err != nil {
 		s.logger.Error("template not found", "name", page)
 		s.RenderViewError(w, r, http.StatusInternalServerError, data)
 		return
 	}
 
 	buffer := new(bytes.Buffer)
-	err := ts.ExecuteTemplate(buffer, "base", data)
+	err = ts.ExecuteTemplate(buffer, "base", data)
+
 	if err != nil {
 		s.logger.Error("template execution failed", "error", err)
 		s.RenderViewError(w, r, http.StatusInternalServerError, data)
@@ -121,11 +120,9 @@ func (s *TemplateService) GetCSRFToken(r *http.Request) string {
 	return nosurf.Token(r)
 }
 
-func (s *TemplateService) NewTemplateCache() (map[string]*template.Template, error) {
-	cache := map[string]*template.Template{}
-
+func (s *TemplateService) loadTemplates(fsys fs.FS) ([]string, error) {
 	var pages []string
-	err := fs.WalkDir(ui.Files, "html", func(path string, d fs.DirEntry, err error) error {
+	err := fs.WalkDir(fsys, "html", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -139,8 +136,21 @@ func (s *TemplateService) NewTemplateCache() (map[string]*template.Template, err
 		}
 		return nil
 	})
+	return pages, err
+}
+
+func (s *TemplateService) parseTemplate(fsys fs.FS, name string, patterns []string) (*template.Template, error) {
+	return template.New(name).Funcs(s.functions).ParseFS(fsys, patterns...)
+}
+
+func (s *TemplateService) NewTemplateCache() (map[string]*template.Template, error) {
+	cache := map[string]*template.Template{}
+	fsys := ui.Files
+
+	pages, err := s.loadTemplates(fsys)
 	if err != nil {
-		return nil, fmt.Errorf("error walking templates directory: %w", err)
+		s.logger.Error("error walking templates directory", "error", err)
+		return nil, err
 	}
 
 	for _, page := range pages {
@@ -153,7 +163,7 @@ func (s *TemplateService) NewTemplateCache() (map[string]*template.Template, err
 			page,
 		}
 
-		ts, err := template.New(name).Funcs(s.functions).ParseFS(ui.Files, patterns...)
+		ts, err := s.parseTemplate(fsys, name, patterns)
 		if err != nil {
 			return nil, err
 		}
@@ -181,4 +191,32 @@ func GetProjectRoot() string {
 		panic(err)
 	}
 	return wd
+}
+
+func (s *TemplateService) getTemplateFile(name string) (*template.Template, error) {
+	if !s.isDevelopment {
+		return s.cache[name], nil
+	}
+
+	fsys := ui.ViewFiles
+	pages, err := s.loadTemplates(fsys)
+	if err != nil {
+		s.logger.Error("error walking templates directory", "error", err)
+		return nil, err
+	}
+
+	for _, page := range pages {
+		normalisedName := s.manager.NormaliseTemplateName(page)
+		if normalisedName == name {
+			patterns := []string{
+				"html/base.html",
+				"html/partials/*.html",
+				page,
+			}
+
+			return s.parseTemplate(fsys, name, patterns)
+		}
+	}
+
+	return nil, fmt.Errorf("template not found: %s", name)
 }
