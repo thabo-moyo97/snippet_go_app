@@ -3,6 +3,7 @@ package services
 import (
 	"database/sql"
 	"log/slog"
+	"time"
 
 	"thabomoyo.co.uk/internal/models"
 )
@@ -32,4 +33,14 @@ func (s *SnippetService) Get(id int) (models.Snippet, error) {
 
 func (s *SnippetService) Insert(title, content string, expires int) (int, error) {
 	return s.model.Insert(title, content, expires)
+}
+func (s *SnippetService) Update(id int, title string, content string, expires int) (int, error) {
+	snippet := models.Snippet{
+		ID:      id,
+		Title:   title,
+		Content: content,
+		Expires: time.Now().AddDate(0, 0, expires),
+	}
+
+	return s.model.Update(snippet)
 }

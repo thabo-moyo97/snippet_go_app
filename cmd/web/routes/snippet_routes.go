@@ -19,7 +19,8 @@ func (rh *RouteHandler) SnippetRoutes(protected, dynamic alice.Chain) http.Handl
 
 	// Protected routes
 	mux.Handle("GET /snippet/create", protected.ThenFunc(snippetHandler.SnippetCreateView))
-	mux.Handle("POST /snippet/create", protected.ThenFunc(snippetHandler.SnippetCreatePostAction))
+	mux.Handle("POST /snippet/create", protected.ThenFunc(snippetHandler.SnippetCreateAction))
+	mux.Handle("POST /snippet/{id}/edit", protected.ThenFunc(snippetHandler.SnippetEditAction))
 
 	return mux
 }

@@ -20,14 +20,15 @@ type SnippetModel struct {
 
 type SnippetModelInterface interface {
 	Insert(title, content string, expires int) (int, error)
-	Get(id int) (User, error)
+	Get(id int) (Snippet, error)
+	Update(id int) (Snippet, error)
 	Latest() ([]Snippet, error)
 }
 
 func (m *SnippetModel) Get(id int) (Snippet, error) {
-	var s Snippet
+	var newSnippet Snippet
 	//scan the row data into the Snippet struct
-	err := m.DB.QueryRow("SELECT id, title, content, created, expires FROM snippets WHERE id = ?", id).Scan(&s.ID, &s.Title, &s.Content, &s.Created, &s.Expires)
+	err := m.DB.QueryRow("SELECT id, title, content, created, expires FROM snippets WHERE id = ?", id).Scan(&newSnippet.ID, &newSnippet.Title, &newSnippet.Content, &newSnippet.Created, &newSnippet.Expires)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -36,7 +37,7 @@ func (m *SnippetModel) Get(id int) (Snippet, error) {
 		return Snippet{}, err
 	}
 
-	return s, nil
+	return newSnippet, nil
 }
 
 func (m *SnippetModel) Insert(title string, content string, expires int) (int, error) {
@@ -52,6 +53,19 @@ func (m *SnippetModel) Insert(title string, content string, expires int) (int, e
 	id, err := result.LastInsertId()
 
 	return int(id), nil
+}
+
+func (m *SnippetModel) Update(snippet Snippet) (int, error) {
+	stmt := `UPDATE snippets 
+    SET title = ?, content = ?, expires = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY)
+    WHERE id = ?`
+
+	_, err := m.DB.Exec(stmt, snippet.Title, snippet.Content, snippet.Expires, snippet.ID)
+	if err != nil {
+		return 0, err
+	}
+
+	return snippet.ID, nil
 }
 
 func (m *SnippetModel) Latest() ([]Snippet, error) {

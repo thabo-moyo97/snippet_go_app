@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"thabomoyo.co.uk/internal/models"
 	"thabomoyo.co.uk/internal/services"
@@ -12,6 +13,14 @@ import (
 )
 
 type SnippetCreateViewForm struct {
+	Title               string `form:"title"`
+	Content             string `form:"content"`
+	Expires             int    `form:"expires"`
+	validator.Validator `form:"-"`
+}
+
+type SnippetUpdateViewForm struct {
+	ID                  int    `form:"id"`
 	Title               string `form:"title"`
 	Content             string `form:"content"`
 	Expires             int    `form:"expires"`
@@ -32,7 +41,7 @@ func (s *SnippetHandler) Home(w http.ResponseWriter, r *http.Request) {
 	snippets, err := s.services.Snippets.Latest()
 	if err != nil {
 		s.services.Logger.Error("failed to get latest snippets", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		s.services.Errors.ServerError(w, r, err, http.StatusInternalServerError)
 		return
 	}
 
@@ -84,16 +93,20 @@ func (s *SnippetHandler) SnippetEditView(w http.ResponseWriter, r *http.Request)
 	}
 	data := s.services.Templates.NewTemplateData(r)
 	snippet, err := s.services.Snippets.Get(id)
-	data.Form = SnippetCreateViewForm{
-		Title:   snippet.Title,
+	if err != nil {
+		s.services.Errors.ServerError(w, r, err)
+	}
+	data.Form = SnippetUpdateViewForm{
+		ID:      snippet.ID,
+		Title:   snippet.Content,
 		Content: snippet.Content,
-		Expires: 7,
+		Expires: int(time.Until(snippet.Expires).Hours() / 24),
 	}
 
 	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.edit", data)
 }
 
-func (s *SnippetHandler) SnippetCreatePostAction(w http.ResponseWriter, r *http.Request) {
+func (s *SnippetHandler) SnippetCreateAction(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 
 	err := r.ParseForm()
@@ -135,4 +148,50 @@ func (s *SnippetHandler) SnippetCreatePostAction(w http.ResponseWriter, r *http.
 	s.services.Sessions.Put(r.Context(), "flash", "Snippet successfully created!")
 
 	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
+}
+
+func (s *SnippetHandler) SnippetEditAction(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 4096)
+
+	err := r.ParseForm()
+	if err != nil {
+		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
+		return
+	}
+
+	var form SnippetUpdateViewForm
+
+	err = s.services.Forms.DecodePostForm(r, &form)
+	if err != nil {
+		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
+		return
+	}
+
+	form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
+	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
+	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
+	form.CheckField(validator.MinChars(form.Content, 5), "content", "This field must be at least 5 characters long")
+	form.CheckField(validator.MinWordCount(form.Content, 3), "content", "This field must contain at least 3 words")
+	form.CheckField(validator.MaxChars(form.Content, 1000), "content", "This field must be less than 1000 characters long")
+	form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
+
+	if !form.Valid() {
+		data := s.services.Templates.NewTemplateData(r)
+		data.Form = form
+		s.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "snippets.edit", data)
+		return
+	}
+
+	id, err := s.services.Snippets.Update(form.ID, form.Title, form.Content, form.Expires)
+
+	if err != nil {
+		s.services.Logger.Error("failed to insert snippet", "error", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	s.services.Sessions.Put(r.Context(), "flash", "Snippet successfully updated!")
+
+	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
+
 }

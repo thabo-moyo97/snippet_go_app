@@ -1,15 +1,22 @@
 {{define "title"}}Snippet #{{.Snippet.ID}}{{end}}
 
 {{define "main"}}
-   <form action='/snippet/create' method='POST' class="max-w-2xl mx-auto">
+   <form action='/snippet/{{.Form.ID}}/edit' method='POST' class="max-w-2xl mx-auto">
         <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
+        
         <div class="mb-6">
-            <label class="block mb-2">Title:  </label>
-            {{with .Form.FieldErrors.title}}
-                <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
-            {{end}}
-            <input type='text' name='title' value='{{.Form.Title}}'
-                   class="w-full p-3 border border-[#E4E5E7] rounded text-[#6A6C6F]">
+            <div class="w-full flex justify-between">
+                <label class="block mb-2">Title: </label>
+                    <div class="my-2"></div>
+                Expires is: {{.Form.Expires}} days
+            </div>
+                {{with .Form.FieldErrors.title}}
+                    <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
+                {{end}}
+                <input type='text' name='title' value='{{.Form.Title}}'
+                    class="w-full p-3 border border-[#E4E5E7] rounded text-[#6A6C6F]">
+                </div>
+            </div>
         </div>
         <div class="mb-6">
             <label class="block mb-2">Content:</label>

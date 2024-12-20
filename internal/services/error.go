@@ -21,7 +21,7 @@ func NewErrorService(logger *slog.Logger, templates *TemplateService, debugMode 
 	}
 }
 
-func (s *ErrorService) ServerError(w http.ResponseWriter, r *http.Request, err error) {
+func (s *ErrorService) ServerError(w http.ResponseWriter, r *http.Request, err error, status ...int) {
 	var (
 		method = r.Method
 		uri    = r.URL.RequestURI()
@@ -31,7 +31,11 @@ func (s *ErrorService) ServerError(w http.ResponseWriter, r *http.Request, err e
 
 	if s.debugMode {
 		body := fmt.Sprintf("%s\n%s", err, trace)
-		http.Error(w, body, http.StatusInternalServerError)
+		statusCode := http.StatusInternalServerError
+		if len(status) > 0 {
+			statusCode = status[0]
+		}
+		http.Error(w, body, statusCode)
 		return
 	}
 
@@ -40,6 +44,5 @@ func (s *ErrorService) ServerError(w http.ResponseWriter, r *http.Request, err e
 }
 
 func (s *ErrorService) ClientError(w http.ResponseWriter, r *http.Request, status int) {
-
 	http.Error(w, http.StatusText(status), status)
 }
