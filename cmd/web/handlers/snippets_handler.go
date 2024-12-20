@@ -11,7 +11,7 @@ import (
 	"thabomoyo.co.uk/internal/validator"
 )
 
-type snippetCreateForm struct {
+type SnippetCreateViewForm struct {
 	Title               string `form:"title"`
 	Content             string `form:"content"`
 	Expires             int    `form:"expires"`
@@ -67,16 +67,16 @@ func (s *SnippetHandler) SnippetView(w http.ResponseWriter, r *http.Request) {
 	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.view", data)
 }
 
-func (s *SnippetHandler) SnippetCreate(w http.ResponseWriter, r *http.Request) {
+func (s *SnippetHandler) SnippetCreateView(w http.ResponseWriter, r *http.Request) {
 	data := s.services.Templates.NewTemplateData(r)
-	data.Form = snippetCreateForm{
+	data.Form = SnippetCreateViewForm{
 		Expires: 7,
 	}
 
 	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.create", data)
 }
 
-func (s *SnippetHandler) SnippetEdit(w http.ResponseWriter, r *http.Request) {
+func (s *SnippetHandler) SnippetEditView(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil || id < 1 {
 		s.services.Errors.ServerError(w, r, err)
@@ -84,7 +84,7 @@ func (s *SnippetHandler) SnippetEdit(w http.ResponseWriter, r *http.Request) {
 	}
 	data := s.services.Templates.NewTemplateData(r)
 	snippet, err := s.services.Snippets.Get(id)
-	data.Form = snippetCreateForm{
+	data.Form = SnippetCreateViewForm{
 		Title:   snippet.Title,
 		Content: snippet.Content,
 		Expires: 7,
@@ -93,7 +93,7 @@ func (s *SnippetHandler) SnippetEdit(w http.ResponseWriter, r *http.Request) {
 	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.edit", data)
 }
 
-func (s *SnippetHandler) SnippetCreatePost(w http.ResponseWriter, r *http.Request) {
+func (s *SnippetHandler) SnippetCreatePostAction(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 
 	err := r.ParseForm()
@@ -102,7 +102,7 @@ func (s *SnippetHandler) SnippetCreatePost(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	var form snippetCreateForm
+	var form SnippetCreateViewForm
 
 	err = s.services.Forms.DecodePostForm(r, &form)
 	if err != nil {
