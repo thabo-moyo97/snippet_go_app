@@ -14,8 +14,8 @@ func (rh *RouteHandler) SnippetRoutes(protected, dynamic alice.Chain) http.Handl
 
 	// Public routes with dynamic middleware
 	mux.Handle("GET /", dynamic.ThenFunc(snippetHandler.Home))
-	mux.Handle("GET /snippet/view/{id}", dynamic.ThenFunc(snippetHandler.SnippetView))
-	mux.Handle("GET /snippet/edit/{id}", dynamic.ThenFunc(snippetHandler.SnippetEditView))
+	mux.Handle("GET /snippet/view/{id}", protected.ThenFunc(snippetHandler.SnippetView))
+	mux.Handle("GET /snippet/edit/{id}", protected.ThenFunc(snippetHandler.SnippetEditView))
 
 	// Protected routes
 	mux.Handle("GET /snippet/create", protected.ThenFunc(snippetHandler.SnippetCreateView))

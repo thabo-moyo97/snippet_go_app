@@ -98,7 +98,7 @@ func (s *SnippetHandler) SnippetEditView(w http.ResponseWriter, r *http.Request)
 	}
 	data.Form = SnippetUpdateViewForm{
 		ID:      snippet.ID,
-		Title:   snippet.Content,
+		Title:   snippet.Title,
 		Content: snippet.Content,
 		Expires: int(time.Until(snippet.Expires).Hours() / 24),
 	}
@@ -109,15 +109,10 @@ func (s *SnippetHandler) SnippetEditView(w http.ResponseWriter, r *http.Request)
 func (s *SnippetHandler) SnippetCreateAction(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
 
-	err := r.ParseForm()
-	if err != nil {
-		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
-		return
-	}
-
 	var form SnippetCreateViewForm
 
-	err = s.services.Forms.DecodePostForm(r, &form)
+	err := s.services.Forms.DecodePostForm(r, &form)
+
 	if err != nil {
 		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
 		return
@@ -127,7 +122,7 @@ func (s *SnippetHandler) SnippetCreateAction(w http.ResponseWriter, r *http.Requ
 	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
 	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
 	form.CheckField(validator.MinChars(form.Content, 5), "content", "This field must be at least 5 characters long")
-	form.CheckField(validator.MinWordCount(form.Content, 3), "content", "This field must contain at least 3 words")
+	form.CheckField(validator.MinWordCount(form.Content, 2), "content", "This field must contain at least 3 words")
 	form.CheckField(validator.MaxChars(form.Content, 1000), "content", "This field must be less than 1000 characters long")
 	form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
 
@@ -173,7 +168,7 @@ func (s *SnippetHandler) SnippetEditAction(w http.ResponseWriter, r *http.Reques
 	form.CheckField(validator.MinChars(form.Content, 5), "content", "This field must be at least 5 characters long")
 	form.CheckField(validator.MinWordCount(form.Content, 3), "content", "This field must contain at least 3 words")
 	form.CheckField(validator.MaxChars(form.Content, 1000), "content", "This field must be less than 1000 characters long")
-	form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
+	form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365, 0), "expires", "This field must equal 1, 7, 365 days or never.")
 
 	if !form.Valid() {
 		data := s.services.Templates.NewTemplateData(r)

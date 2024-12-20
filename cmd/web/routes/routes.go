@@ -37,7 +37,12 @@ func (rh *RouteHandler) cacheControlFileServer(fs http.FileSystem) http.Handler 
 }
 
 func (rh *RouteHandler) Routes() http.Handler {
-	fileServer := rh.cacheControlFileServer(http.FS(ui.Files))
+	files := ui.ViewFiles
+	if !rh.services.IsDevelopment {
+		files = ui.Files //Use embedded files
+	}
+	fileServer := rh.cacheControlFileServer(http.FS(files))
+
 	staticHandler := http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.URL.Path = "/static/" + r.URL.Path
 		fileServer.ServeHTTP(w, r)
@@ -68,7 +73,7 @@ func (rh *RouteHandler) Routes() http.Handler {
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 			CheckOrigin: func(r *http.Request) bool {
-				return true // In production, you should check the origin
+				return true //TODO Check original for production
 			},
 		}
 
