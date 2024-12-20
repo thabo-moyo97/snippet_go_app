@@ -30,21 +30,21 @@ func NewUserHandler(services *services.Services) *UserHandler {
 	return &UserHandler{services: services}
 }
 
-func (u *UserHandler) UserSignup(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) UserSignupView(w http.ResponseWriter, r *http.Request) {
 	data := u.services.Templates.NewTemplateData(r)
 	data.Form = userSignupForm{}
 
-	u.services.Templates.RenderView(w, r, http.StatusOK, "signup.tmpl", data)
+	u.services.Templates.RenderView(w, r, http.StatusOK, "signup", data)
 }
 
-func (u *UserHandler) UserLogin(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) UserLoginView(w http.ResponseWriter, r *http.Request) {
 	data := u.services.Templates.NewTemplateData(r)
 	data.Form = userLoginForm{}
 
-	u.services.Templates.RenderView(w, r, http.StatusOK, "login.tmpl", data)
+	u.services.Templates.RenderView(w, r, http.StatusOK, "login", data)
 }
 
-func (u *UserHandler) UserSignupPost(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) UserSignupPostAction(w http.ResponseWriter, r *http.Request) {
 	var form userSignupForm
 
 	err := u.services.Forms.DecodePostForm(r, &form)
@@ -62,7 +62,7 @@ func (u *UserHandler) UserSignupPost(w http.ResponseWriter, r *http.Request) {
 	if !form.Valid() {
 		data := u.services.Templates.NewTemplateData(r)
 		data.Form = form
-		u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "signup.tmpl", data)
+		u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "signup", data)
 		return
 	}
 
@@ -73,7 +73,7 @@ func (u *UserHandler) UserSignupPost(w http.ResponseWriter, r *http.Request) {
 
 			data := u.services.Templates.NewTemplateData(r)
 			data.Form = form
-			u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "signup.tmpl", data)
+			u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "signup", data)
 		} else {
 			u.services.Errors.ServerError(w, r, err)
 		}
@@ -86,7 +86,7 @@ func (u *UserHandler) UserSignupPost(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/user/login", http.StatusSeeOther)
 }
 
-func (u *UserHandler) UserLoginPost(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) UserLoginPostAction(w http.ResponseWriter, r *http.Request) {
 	var form userLoginForm
 
 	err := u.services.Forms.DecodePostForm(r, &form)
@@ -102,7 +102,7 @@ func (u *UserHandler) UserLoginPost(w http.ResponseWriter, r *http.Request) {
 	if !form.Valid() {
 		data := u.services.Templates.NewTemplateData(r)
 		data.Form = form
-		u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "login.tmpl", data)
+		u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "login", data)
 		return
 	}
 
@@ -113,7 +113,7 @@ func (u *UserHandler) UserLoginPost(w http.ResponseWriter, r *http.Request) {
 
 			data := u.services.Templates.NewTemplateData(r)
 			data.Form = form
-			u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "login.tmpl", data)
+			u.services.Templates.RenderView(w, r, http.StatusUnprocessableEntity, "login", data)
 		} else {
 			u.services.Errors.ServerError(w, r, err)
 		}
@@ -131,7 +131,7 @@ func (u *UserHandler) UserLoginPost(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
-func (u *UserHandler) UserLogoutPost(w http.ResponseWriter, r *http.Request) {
+func (u *UserHandler) UserLogoutPostAction(w http.ResponseWriter, r *http.Request) {
 	err := u.services.Sessions.RenewToken(r.Context())
 	if err != nil {
 		u.services.Errors.ServerError(w, r, err)
@@ -164,5 +164,5 @@ func (u *UserHandler) UserAccountView(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data.User = user
-	u.services.Templates.RenderView(w, r, http.StatusOK, "account.tmpl", data)
+	u.services.Templates.RenderView(w, r, http.StatusOK, "account", data)
 }

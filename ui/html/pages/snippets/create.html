@@ -29,12 +29,12 @@
                 <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
             {{end}}
             <div class="space-x-4">
-                <input type='radio' name='expires' value='365' {{if (eq .Form.Expires 365)}}checked{{end}}
-                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Year</span>
-                <input type='radio' name='expires' value='7' {{if (eq .Form.Expires 7)}}checked{{end}}
-                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Week</span>
                 <input type='radio' name='expires' value='1' {{if (eq .Form.Expires 1)}}checked{{end}}
                        class="ml-[18px]"> <span class="text-[#6A6C6F]">One Day</span>
+                <input type='radio' name='expires' value='7' {{if (eq .Form.Expires 7)}}checked{{end}}
+                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Week</span>
+                <input type='radio' name='expires' value='365' {{if (eq .Form.Expires 365)}}checked{{end}}
+                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Year</span>
             </div>
         </div>
         <div class="mt-6">

@@ -6,7 +6,7 @@ services:
     extends:
       file: ../../common-services.yml
       service: app
-    command: sh -c "chmod +x /app/.docker/scripts/start-dev.sh && /app/.docker/scripts/start-dev.sh ${DEBUG:+--debug}"
+    #command: sh -c "chmod +x /app/.docker/scripts/start-dev.sh && /app/.docker/scripts/start-dev.sh ${DEBUG:+--debug}"
     build: 
       context: ../..
       dockerfile: Dockerfile.dev

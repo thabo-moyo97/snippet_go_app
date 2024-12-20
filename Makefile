@@ -27,7 +27,7 @@ help:
 .PHONY: dev prod down logs
 
 dev:
-	docker compose --env-file .env -f .docker/compose/docker-compose.dev.yml up --remove-orphans --force-recreate
+	docker compose --env-file .env -f .docker/compose/docker-compose.dev.yml up --remove-orphans --force-recreate -d
 
 prod:
 	docker compose --env-file .env -f .docker/compose/docker-compose.prod.yml up
@@ -52,6 +52,9 @@ start-debug:
 
 tailwind:
 	cd ./ui && npm run build
+
+start-sh:
+	docker compose --env-file .env -f .docker/compose/docker-compose.dev.yml exec app sh -c "chmod +x /app/.docker/scripts/start-dev.sh && /app/.docker/scripts/start-dev.sh"
 
 .DEFAULT_GOAL := dev
 

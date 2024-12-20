@@ -43,4 +43,5 @@ tls/
 
 # Ignore everything in tmp directory
 tmp/*
+
 ui/static/css/output.css
