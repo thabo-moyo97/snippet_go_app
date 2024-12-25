@@ -1,46 +1,59 @@
 package services
 
 import (
-	"database/sql"
 	"log/slog"
-	"time"
 
+	"github.com/jmoiron/sqlx"
 	"thabomoyo.co.uk/internal/models"
+	"thabomoyo.co.uk/internal/utils"
 )
 
 type SnippetService struct {
-	db     *sql.DB
-	logger *slog.Logger
-	model  *models.SnippetModel
+	snippet models.SnippetModelInterface
+	logger  *slog.Logger
 }
 
-func NewSnippetService(db *sql.DB, logger *slog.Logger) *SnippetService {
+func NewSnippetService(db *sqlx.DB, logger *slog.Logger) *SnippetService {
 	return &SnippetService{
-		db:     db,
-		logger: logger,
-		model:  &models.SnippetModel{DB: db},
+		snippet: models.NewSnippetModel(db),
+		logger:  logger,
 	}
-}
-
-// Move business logic from handlers to here
-func (s *SnippetService) Latest() ([]models.Snippet, error) {
-	return s.model.Latest()
 }
 
 func (s *SnippetService) Get(id int) (models.Snippet, error) {
-	return s.model.Get(id)
+	model, err := s.snippet.Get(id)
+
+	return model, err
 }
 
-func (s *SnippetService) Insert(title, content string, expires int) (int, error) {
-	return s.model.Insert(title, content, expires)
+func (s *SnippetService) Create(snippet models.Snippet) (int, error) {
+	return s.snippet.Insert(snippet)
 }
-func (s *SnippetService) Update(id int, title string, content string, expires int) (int, error) {
-	snippet := models.Snippet{
-		ID:      id,
-		Title:   title,
-		Content: content,
-		Expires: time.Now().AddDate(0, 0, expires),
-	}
 
-	return s.model.Update(snippet)
+func (s *SnippetService) Insert(snippet models.Snippet) (int, error) {
+
+	return s.snippet.Insert(snippet)
+}
+
+func (s *SnippetService) Update(snippet models.Snippet) (bool, error) {
+	fillable := s.snippet.GetFillableFields()
+	data := utils.BuildDataMap(snippet, &fillable)
+
+	return s.snippet.Update(snippet.ID, data)
+}
+
+func (s *SnippetService) Delete(id int) error {
+	return s.snippet.Delete(id)
+}
+
+func (s *SnippetService) List(limit, offset int) ([]models.Snippet, error) {
+	return s.snippet.List(limit, offset)
+}
+
+func (s *SnippetService) Exists(id int) (bool, error) {
+	return s.snippet.Exists(id)
+}
+
+func (s *SnippetService) Latest() ([]models.Snippet, error) {
+	return s.snippet.Latest()
 }

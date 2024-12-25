@@ -6,17 +6,20 @@ import (
 	"net/http"
 
 	"github.com/go-playground/form/v4"
+	"github.com/go-playground/mold/v4"
 )
 
 type FormService struct {
-	decoder *form.Decoder
-	logger  *slog.Logger
+	decoder     *form.Decoder
+	logger      *slog.Logger
+	transformer *mold.Transformer
 }
 
 func NewFormService(decoder *form.Decoder, logger *slog.Logger) *FormService {
 	return &FormService{
-		decoder: decoder,
-		logger:  logger,
+		decoder:     decoder,
+		logger:      logger,
+		transformer: mold.New(),
 	}
 }
 
@@ -26,6 +29,12 @@ func (s *FormService) DecodePostForm(r *http.Request, dst any) error {
 		s.logger.Error("failed to parse form", "error", err)
 		return err
 	}
+
+	// Set default values before decoding
+	/* 	if err := s.transformer.Struct(context.Background(), dst); err != nil {
+		s.logger.Error("failed to set defaults", "error", err)
+		return err
+	} */
 
 	err = s.decoder.Decode(dst, r.PostForm)
 	if err != nil {

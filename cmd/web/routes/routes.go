@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"io/fs"
 	"net/http"
 
 	"github.com/gorilla/websocket"
@@ -37,10 +38,13 @@ func (rh *RouteHandler) cacheControlFileServer(fs http.FileSystem) http.Handler 
 }
 
 func (rh *RouteHandler) Routes() http.Handler {
-	files := ui.ViewFiles
-	if !rh.services.IsDevelopment {
+	var files fs.FS
+	if rh.services.IsDevelopment {
+		files = ui.ViewFiles
+	} else {
 		files = ui.Files //Use embedded files
 	}
+
 	fileServer := rh.cacheControlFileServer(http.FS(files))
 
 	staticHandler := http.StripPrefix("/static/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -53,10 +57,10 @@ func (rh *RouteHandler) Routes() http.Handler {
 	mux.Handle("/static/", staticHandler)
 
 	dynamic := alice.New(
-		recoverPanic(rh.services),
-		logRequest(rh.services),
-		commonHeaders,
 		rh.services.Sessions.LoadAndSave,
+		commonHeaders,
+		logRequest(rh.services),
+		recoverPanic(rh.services),
 		noSurf,
 		authenticate(rh.services),
 	)

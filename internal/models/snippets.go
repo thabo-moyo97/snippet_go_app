@@ -2,98 +2,49 @@ package models
 
 import (
 	"database/sql"
-	"errors"
 	"time"
+
+	sq "github.com/Masterminds/squirrel"
+
+	"github.com/jmoiron/sqlx"
 )
 
 type Snippet struct {
-	ID      int
-	Title   string
-	Content string
-	Created time.Time
-	Expires time.Time
-}
-
-type SnippetModel struct {
-	DB *sql.DB
+	ID        int
+	Title     string
+	Content   string
+	ExpiresAt sql.NullTime `db:"expires_at"`
+	CreatedAt time.Time    `db:"created_at"`
 }
 
 type SnippetModelInterface interface {
-	Insert(title, content string, expires int) (int, error)
-	Get(id int) (Snippet, error)
-	Update(id int) (Snippet, error)
+	ModelOperations[Snippet]
 	Latest() ([]Snippet, error)
 }
-
-func (m *SnippetModel) Get(id int) (Snippet, error) {
-	var newSnippet Snippet
-	//scan the row data into the Snippet struct
-	err := m.DB.QueryRow("SELECT id, title, content, created, expires FROM snippets WHERE id = ?", id).Scan(&newSnippet.ID, &newSnippet.Title, &newSnippet.Content, &newSnippet.Created, &newSnippet.Expires)
-
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return Snippet{}, ErrNoRecord
-		}
-		return Snippet{}, err
-	}
-
-	return newSnippet, nil
+type SnippetModel struct {
+	*Model[Snippet]
 }
 
-func (m *SnippetModel) Insert(title string, content string, expires int) (int, error) {
-	stmt := `INSERT INTO snippets (title, content, created, expires)
-    VALUES(?, ?, UTC_TIMESTAMP(), DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY))`
-
-	result, err := m.DB.Exec(stmt, title, content, expires)
-
-	if err != nil {
-		return 0, err
+func NewSnippetModel(db *sqlx.DB) *SnippetModel {
+	table := "snippets"
+	fillableFields := []string{"title", "content", "expires_at"}
+	return &SnippetModel{
+		Model: NewModel[Snippet](db, table, fillableFields),
 	}
-
-	id, err := result.LastInsertId()
-
-	return int(id), nil
 }
 
-func (m *SnippetModel) Update(snippet Snippet) (int, error) {
-	stmt := `UPDATE snippets 
-    SET title = ?, content = ?, expires = DATE_ADD(UTC_TIMESTAMP(), INTERVAL ? DAY)
-    WHERE id = ?`
-
-	_, err := m.DB.Exec(stmt, snippet.Title, snippet.Content, snippet.Expires, snippet.ID)
-	if err != nil {
-		return 0, err
-	}
-
-	return snippet.ID, nil
-}
-
+// Latest is a custom method specific to Snippet
 func (m *SnippetModel) Latest() ([]Snippet, error) {
-	// Write the SQL statement we want to execute.
-	stmt := `SELECT id, title, content, created, expires FROM snippets
-    WHERE expires > UTC_TIMESTAMP() ORDER BY id DESC LIMIT 10`
-
-	rows, err := m.DB.Query(stmt)
-	if err != nil {
-		return nil, err
-	}
-
-	// We defer rows.Close() to ensure that the result set is always properly closed before the Latest() method returns.
-	defer rows.Close()
-
 	var snippets []Snippet
+	query, args, err := sq.
+		Select("*").
+		From(m.TableName).
+		OrderBy("id DESC").
+		Limit(10).
+		ToSql()
 
-	for rows.Next() {
-		var s Snippet
-
-		err = rows.Scan(&s.ID, &s.Title, &s.Content, &s.Created, &s.Expires)
-		if err != nil {
-			return nil, err
-		}
-		snippets = append(snippets, s)
-	}
-
-	if err = rows.Err(); err != nil {
+	err = m.DB.Select(&snippets, query, args...)
+	if err != nil {
 		return nil, err
 	}
 

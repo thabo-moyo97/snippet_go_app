@@ -40,7 +40,7 @@ func NewWatcher(templateDir string, templateManager *templatemanager.Manager, te
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() && filepath.Ext(path) == ".html" {
+		if !info.IsDir() && filepath.Ext(path) == ".tmpl" {
 			// Map file paths to template names
 			templateName := templateManager.NormaliseTemplateName(path)
 			w.templates[path] = templateName

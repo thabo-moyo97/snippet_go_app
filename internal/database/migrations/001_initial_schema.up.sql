@@ -3,8 +3,8 @@ CREATE TABLE IF NOT EXISTS snippets (
     id INTEGER NOT NULL PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(100) NOT NULL,
     content TEXT NOT NULL,
-    created DATETIME NOT NULL,
-    expires DATETIME NOT NULL
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NULL
 );
 
 -- Create users table
@@ -28,5 +28,5 @@ CREATE TABLE sessions (
 CREATE INDEX sessions_expiry_idx ON sessions(expiry);
 
 -- Add indexes (with safe creation)
-CREATE INDEX idx_snippets_created ON snippets(created);
+CREATE INDEX idx_snippets_created ON snippets(created_at);
 ALTER TABLE users ADD UNIQUE INDEX idx_users_email (email); 

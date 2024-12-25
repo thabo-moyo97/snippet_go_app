@@ -1,21 +1,21 @@
 package services
 
 import (
-	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
 
+	"github.com/jmoiron/sqlx"
 	"thabomoyo.co.uk/internal/models"
 )
 
 type UserService struct {
-	db     *sql.DB
+	db     *sqlx.DB
 	logger *slog.Logger
 	model  *models.UserModel
 }
 
-func NewUserService(db *sql.DB, logger *slog.Logger) *UserService {
+func NewUserService(db *sqlx.DB, logger *slog.Logger) *UserService {
 	return &UserService{
 		db:     db,
 		logger: logger,

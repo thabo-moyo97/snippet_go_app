@@ -27,7 +27,7 @@ help:
 .PHONY: dev prod down logs
 
 dev:
-	docker compose --env-file .env -f .docker/compose/docker-compose.dev.yml up --remove-orphans --force-recreate -d
+	docker compose --env-file .env -f .docker/compose/docker-compose.dev.yml up --remove-orphans -d
 
 prod:
 	docker compose --env-file .env -f .docker/compose/docker-compose.prod.yml up

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -15,7 +16,7 @@ type User struct {
 	Email        string
 	PasswordHash []byte
 	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	UpdatedAt    sql.NullTime
 }
 
 type UserModelInterface interface {
@@ -26,7 +27,7 @@ type UserModelInterface interface {
 }
 
 type UserModel struct {
-	DB *sql.DB
+	DB *sqlx.DB
 }
 
 func (m *UserModel) Get(id int) (User, error) {

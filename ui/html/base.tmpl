@@ -36,8 +36,7 @@
                 };
                 
                 ws.onclose = function(event) {
-                    console.log('WebSocket connection close', event);
-                    setTimeout(connect, 1000); // Reconnect after 1 second
+                    console.log('closed')
                 };
                 
                 ws.onerror = function(error) {

@@ -2,8 +2,9 @@ package main
 
 import (
 	"testing"
-	"thabomoyo.co.uk/internal/assert"
 	"time"
+
+	"thabomoyo.co.uk/internal/assert"
 )
 
 func TestHumanDate(t *testing.T) {

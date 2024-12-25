@@ -1,18 +1,21 @@
 package services
 
 import (
-	"database/sql"
-	"html/template"
 	"log/slog"
 	"os"
+	"time"
 
+	"github.com/alexedwards/scs/mysqlstore"
 	"github.com/alexedwards/scs/v2"
 	"github.com/go-playground/form/v4"
+	"github.com/jmoiron/sqlx"
 	"thabomoyo.co.uk/internal/templatemanager"
+	"thabomoyo.co.uk/internal/validator"
 )
 
 // Services holds all services used by the application
 type Services struct {
+	DB            *sqlx.DB
 	Snippets      *SnippetService
 	Users         *UserService
 	Templates     *TemplateService
@@ -23,20 +26,32 @@ type Services struct {
 	DebugMode     bool
 	IsDevelopment bool
 	Watcher       *Watcher
+	Validator     *validator.Validator
 }
 
 // NewServices creates and initialises all services
 func NewServices(
-	db *sql.DB,
+	db *sqlx.DB,
 	logger *slog.Logger,
-	templateCache map[string]*template.Template,
-	sessionManager *scs.SessionManager,
-	templateManager *templatemanager.Manager,
 	debugMode bool,
 ) *Services {
 
-	isDevelopment := os.Getenv("APP_MODE") == "local"
-	templateService := NewTemplateService(templateCache, templateManager, sessionManager, logger, isDevelopment)
+	isDevelopment := os.Getenv("APP_MODE") == "local" || debugMode
+	sessionManager := scs.New()
+	sessionManager.Store = mysqlstore.New(db.DB)
+	sessionManager.Lifetime = 12 * time.Hour
+	sessionManager.Cookie.Secure = true
+
+	templateManager := templatemanager.NewManager(logger, &isDevelopment)
+	cache, err := templateManager.CreateTemplateCache()
+
+	if cache == nil {
+		panic("Failed to initialise cache")
+	} else if err != nil {
+		panic(err)
+	}
+
+	templateService := NewTemplateService(templateManager, sessionManager, logger, &isDevelopment)
 	formDecoder := form.NewDecoder()
 
 	watcher, err := NewWatcher("./ui/html", templateManager, templateService)
@@ -45,6 +60,7 @@ func NewServices(
 	}
 
 	return &Services{
+		DB:            db,
 		Snippets:      NewSnippetService(db, logger),
 		Users:         NewUserService(db, logger),
 		Templates:     templateService,
@@ -55,5 +71,6 @@ func NewServices(
 		DebugMode:     debugMode,
 		IsDevelopment: isDevelopment,
 		Watcher:       watcher,
+		Validator:     validator.New(db.DB),
 	}
 }

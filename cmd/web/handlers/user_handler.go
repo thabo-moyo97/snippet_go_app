@@ -10,16 +10,16 @@ import (
 )
 
 type userSignupForm struct {
-	Name                string `form:"name"`
-	Email               string `form:"email"`
-	Password            string `form:"password"`
-	validator.Validator `form:"-"`
+	Name     string `form:"name" validate:"required"`
+	Email    string `form:"email" validate:"required,email"`
+	Password string `form:"password" validate:"required,min=8"`
+	*validator.Form
 }
 
 type userLoginForm struct {
-	Email               string `form:"email"`
-	Password            string `form:"password"`
-	validator.Validator `form:"-"`
+	Email    string `form:"email" validate:"required,email"`
+	Password string `form:"password" validate:"required"`
+	*validator.Form
 }
 
 type UserHandler struct {
@@ -32,14 +32,18 @@ func NewUserHandler(services *services.Services) *UserHandler {
 
 func (u *UserHandler) UserSignupView(w http.ResponseWriter, r *http.Request) {
 	data := u.services.Templates.NewTemplateData(r)
-	data.Form = userSignupForm{}
+	data.Form = &userSignupForm{
+		Form: &validator.Form{},
+	}
 
 	u.services.Templates.RenderView(w, r, http.StatusOK, "signup", data)
 }
 
 func (u *UserHandler) UserLoginView(w http.ResponseWriter, r *http.Request) {
 	data := u.services.Templates.NewTemplateData(r)
-	data.Form = userLoginForm{}
+	data.Form = &userLoginForm{
+		Form: &validator.Form{},
+	}
 
 	u.services.Templates.RenderView(w, r, http.StatusOK, "login", data)
 }
@@ -53,11 +57,7 @@ func (u *UserHandler) UserSignupPostAction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	form.CheckField(validator.NotBlank(form.Name), "name", "This field cannot be blank")
-	form.CheckField(validator.NotBlank(form.Email), "email", "This field cannot be blank")
-	form.CheckField(validator.Matches(form.Email, validator.EmailRX), "email", "This field must be a valid email address")
-	form.CheckField(validator.NotBlank(form.Password), "password", "This field cannot be blank")
-	form.CheckField(validator.MinChars(form.Password, 8), "password", "This field must be at least 8 characters long")
+	form.Form = u.services.Validator.Validate(&form)
 
 	if !form.Valid() {
 		data := u.services.Templates.NewTemplateData(r)
@@ -69,7 +69,7 @@ func (u *UserHandler) UserSignupPostAction(w http.ResponseWriter, r *http.Reques
 	err = u.services.Users.Insert(form.Name, form.Email, form.Password)
 	if err != nil {
 		if errors.Is(err, models.ErrDuplicateEmail) || errors.Is(err, models.ErrUserExists) {
-			form.AddFieldError("email", "Email address is already in use")
+			form.AddError("email", "Email address is already in use")
 
 			data := u.services.Templates.NewTemplateData(r)
 			data.Form = form
@@ -91,13 +91,11 @@ func (u *UserHandler) UserLoginPostAction(w http.ResponseWriter, r *http.Request
 
 	err := u.services.Forms.DecodePostForm(r, &form)
 	if err != nil {
-		u.services.Errors.ClientError(w, r, http.StatusBadRequest)
+		u.services.Errors.ClientError(w, r, http.StatusBadRequest, &err)
 		return
 	}
 
-	form.CheckField(validator.NotBlank(form.Email), "email", "This field cannot be blank")
-	form.CheckField(validator.Matches(form.Email, validator.EmailRX), "email", "This field must be a valid email address")
-	form.CheckField(validator.NotBlank(form.Password), "password", "This field cannot be blank")
+	form.Form = u.services.Validator.Validate(&form)
 
 	if !form.Valid() {
 		data := u.services.Templates.NewTemplateData(r)

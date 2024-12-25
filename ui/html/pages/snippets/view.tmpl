@@ -7,14 +7,14 @@
             <strong class="text-slate-700">{{.Title}}</strong>
             <div>
                 <a class="btn btn-primary mr-4 px-4 py-2" 
-               href='/snippet/edit/{{.ID}}'>Edit</a>
+               href='/snippet/{{.ID}}/edit'>Edit</a>
                 <span class="text-gray-600">#{{.ID}}</span>
             </div>
         </div>
         <pre class="p-4 border-y border-gray-200"><code>{{.Content}}</code></pre>
         <div class="bg-gray-50 text-gray-600 p-4 overflow-auto">
-            <time class="float-left">Created: {{humanDate .Created}}</time>
-            <time class="float-right">Expires: {{humanDate .Expires}}</time>
+            <time class="float-left">Created: {{humanDate .CreatedAt}}</time>
+            <time class="float-right">Expires: {{humanDate .ExpiresAt.Time}}</time>
         </div>
     </div>
     {{end}}

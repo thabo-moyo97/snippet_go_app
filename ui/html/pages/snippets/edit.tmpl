@@ -1,55 +1,53 @@
-{{define "title"}}Edit{{end}}
+{{define "title"}}Edit Snippet{{end}}
 
 {{define "main"}}
-   <form action='/snippet/{{.Form.ID}}/edit' method='POST' class="max-w-2xl mx-auto">
-        <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
-        
-        <div class="mb-6">
-            <div class="w-full flex justify-between items-center">
-                <label class="block mb-2">Title: </label>
-                    <div class="my-2">
-                        Archives in: {{.Form.Expires}} days
+    {{with .Form}}
+    <div class="max-w-2xl mx-auto">
+        <form action='/snippet/{{.ID}}/edit' method='POST' class="mb-6">
+            <input type='hidden' name='csrf_token' value='{{$.CSRFToken}}'>
+            <input type='hidden' name='expires_at' value='{{createFormDate .ExpiresAt}}'>
+            
+            <div class="mb-6">
+                <div class="w-full flex justify-between items-center">
+                    <label class="block mb-2">Title:</label>
+                    <div class="text-gray-600">
+                        <span class="block">Archives on:</span>
+                        {{humanDate .ExpiresAt}}
                     </div>
-            </div>
-                {{with .Form.FieldErrors.title}}
-                    <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
-                {{end}}
-                <input type='text' name='title' value='{{.Form.Title}}'
-                    class="w-full p-3 border border-[#E4E5E7] rounded text-[#6A6C6F]">
                 </div>
-            </div>
-        </div>
-        <div class="mb-6">
-            <label class="block mb-2">Content:</label>
-            {{range $field, $errors := .Form.FieldErrors}}
-                {{if eq $field "content"}}
-                    {{range $errors}}
-                        <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
-                    {{end}}
+                {{with .Errors.title}}
+                    <label class="text-red-600 font-bold block mb-2">{{.}}</label>
                 {{end}}
-            {{end}}
-            <textarea name='content'
-                      class="w-full p-[18px] h-[266px] border border-[#E4E5E7] rounded text-[#6A6C6F]">{{.Form.Content}}</textarea>
-        </div>
-        <div class="mb-6">
-            <label class="block mb-2">Deletes :</label>
-            {{with .Form.FieldErrors.expires}}
-                <label class="text-[#C0392B] font-bold block mb-2">{{.}}</label>
-            {{end}}
-            <div class="space-x-4">
-                <input type='radio' name='expires' value='1' {{if (eq .Form.Expires 1)}}checked{{end}}
-                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Day</span>                
-                <input type='radio' name='expires' value='7' {{if (eq .Form.Expires 7)}}checked{{end}}
-                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Week</span>
-                <input type='radio' name='expires' value='365' {{if (eq .Form.Expires 365)}}checked{{end}}
-                       class="ml-[18px]"> <span class="text-[#6A6C6F]">One Year</span>
-                <input type='radio' name='expires' value='0' {{if (eq .Form.Expires 0)}}checked{{end}}
-                    class="ml-[18px]"> <span class="text-[#6A6C6F]">Never</span>
+                <input type='text' name='title' value='{{.Title}}'
+                       class="w-full p-3 border border-gray-200 rounded text-gray-600">
             </div>
-        </div>
-        <div class="mt-6">
-            <input type='submit' value='Edit snippet'
-                   class="bg-[#62CB31] text-black px-7 py-4 rounded font-bold hover:bg-[#4EB722] cursor-pointer">
-        </div>
-    </form>
+            <div class="mb-6">
+                <label class="block mb-2">Content:</label>
+                {{with .Errors.content}}
+                    <label class="text-red-600 font-bold block mb-2">{{.}}</label>
+                {{end}}
+                <textarea name='content'
+                          class="w-full p-4 h-64 border border-gray-200 rounded text-gray-600">{{.Content}}</textarea>
+            </div>
+            <div class="mt-6">
+                <input type='submit' value='Save'
+                       class="bg-emerald-500 text-white px-6 py-3 rounded font-bold hover:bg-emerald-600 transition-colors cursor-pointer float-right">
+            </div>
+        </form>
+        
+        <!-- Add delete form -->
+        <form action='/snippet/{{.ID}}/delete' method='POST' class="mt-4" 
+              onsubmit="return confirm('Are you sure you want to delete this snippet?');">
+            <input type='hidden' name='csrf_token' value='{{$.CSRFToken}}'>
+            <button type="submit" 
+                    class="bg-red-500 text-white px-6 py-3 rounded font-bold hover:bg-red-600 transition-colors cursor-pointer">
+                Delete Snippet
+            </button>
+        </form>
+    </div>
+    {{else}}
+    <div class="text-center text-gray-600">
+        <p>No form data available.</p>
+    </div>
+    {{end}}
 {{end}}

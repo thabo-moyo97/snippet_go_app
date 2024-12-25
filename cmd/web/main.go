@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"crypto/tls"
-	"database/sql"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"net/http"
@@ -16,15 +16,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/alexedwards/scs/mysqlstore"
-	"github.com/alexedwards/scs/v2"
-
 	_ "github.com/go-playground/form/v4"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/jmoiron/sqlx"
 	"thabomoyo.co.uk/cmd/web/routes"
 	"thabomoyo.co.uk/internal/database"
 	"thabomoyo.co.uk/internal/services"
-	"thabomoyo.co.uk/internal/templatemanager"
 )
 
 type neuteredFileSystem struct {
@@ -32,7 +29,12 @@ type neuteredFileSystem struct {
 }
 
 func dsn() string {
-	return os.Getenv("DB_USER") + ":" + os.Getenv("DB_PASSWORD") + "@tcp(" + os.Getenv("DB_HOST") + ":" + os.Getenv("DB_PORT") + ")/" + os.Getenv("DB_NAME") + "?parseTime=true&timeout=5s&readTimeout=5s&writeTimeout=5s&multiStatements=true"
+	return fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true&timeout=5s&readTimeout=5s&writeTimeout=5s&multiStatements=true&collation=utf8mb4_unicode_ci",
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASSWORD"),
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_NAME"))
 }
 
 func main() {
@@ -51,7 +53,7 @@ func main() {
 	logger.Info("DB connected")
 
 	//TODO:
-	err = database.RunMigrations(db, logger)
+	err = database.RunMigrations(db.DB, logger)
 	if err != nil {
 		logger.Error("Failed to run migrations: " + err.Error())
 		os.Exit(1)
@@ -59,26 +61,9 @@ func main() {
 
 	defer db.Close()
 
-	sessionManager := scs.New()
-	sessionManager.Store = mysqlstore.New(db)
-	sessionManager.Lifetime = 12 * time.Hour
-	sessionManager.Cookie.Secure = true
-
-	templateManager := templatemanager.NewManager()
-	templateService := services.NewTemplateService(nil, templateManager, sessionManager, logger, *debug)
-
-	templateCache, err := templateService.NewTemplateCache()
-	if err != nil {
-		logger.Error("template cache initialisation failed", "error", err)
-		os.Exit(1)
-	}
-
 	services := services.NewServices(
 		db,
 		logger,
-		templateCache,
-		sessionManager,
-		templateManager,
 		*debug,
 	)
 
@@ -148,27 +133,15 @@ func main() {
 	logger.Info("stopped server", "addr", srv.Addr)
 }
 
-func openDB(dsn string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", dsn)
+func openDB(dsn string) (*sqlx.DB, error) {
+	db, err := sqlx.Connect("mysql", dsn)
 	if err != nil {
 		return nil, err
 	}
 
-	err = db.Ping()
-	if err != nil {
-		// Retry connection up to 3 more times with 2 second delay
-		for i := 0; i < 3; i++ {
-			time.Sleep(2 * time.Second)
-			err = db.Ping()
-			if err == nil {
-				break
-			}
-		}
-		if err != nil {
-			db.Close()
-			return nil, err
-		}
-	}
+	db.SetMaxOpenConns(25)
+	db.SetMaxIdleConns(25)
+	db.SetConnMaxLifetime(5 * time.Minute)
 
 	return db, nil
 }
@@ -181,7 +154,7 @@ func (nfs neuteredFileSystem) Open(path string) (http.File, error) {
 
 	s, err := f.Stat()
 	if s.IsDir() {
-		index := filepath.Join(path, "index.html")
+		index := filepath.Join(path, "index.tmpl")
 		if _, err := nfs.fs.Open(index); err != nil {
 			closeErr := f.Close()
 			if closeErr != nil {

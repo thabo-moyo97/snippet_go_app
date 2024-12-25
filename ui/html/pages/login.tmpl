@@ -3,20 +3,20 @@
 {{define "main"}}
     <form action='/user/login' method='POST' novalidate class="max-w-md mx-auto">
         <input type='hidden' name='csrf_token' value='{{.CSRFToken}}'>
-        {{range .Form.NonFieldErrors}}
+        {{with .Form.Errors.generic}}
             <div class="text-red-600 font-bold mb-4">{{.}}</div>
         {{end}}
         <div class="mb-4">
             <label class="block mb-2">Email:</label>
-            {{range .Form.FieldErrors.email}}
+            {{with .Form.Errors.email}}
                 <label class="text-red-600 font-bold block mb-2">{{.}}</label>
             {{end}}
             <input type='email' name='email' value='{{.Form.Email}}' 
-                   class="w-full p-3 border border-gray-200 rounded text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500" required>
+                   class="w-full p-3 border border-gray-200 rounded text-gray-600 focus:outline-none focus:ring-2 focus:ring-emerald-500">
         </div>
         <div class="mb-4">
             <label class="block mb-2">Password:</label>
-            {{range .Form.FieldErrors.password}}
+            {{with .Form.Errors.password}}
                 <label class="text-red-600 font-bold block mb-2">{{.}}</label>
             {{end}}
             <input type='password' name='password' 

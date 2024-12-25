@@ -1,11 +1,14 @@
 package handlers
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
 	"time"
+
+	"thabomoyo.co.uk/internal/utils"
 
 	"thabomoyo.co.uk/internal/models"
 	"thabomoyo.co.uk/internal/services"
@@ -13,18 +16,31 @@ import (
 )
 
 type SnippetCreateViewForm struct {
-	Title               string `form:"title"`
-	Content             string `form:"content"`
-	Expires             int    `form:"expires"`
-	validator.Validator `form:"-"`
+	Title     string `form:"title" validate:"required,min=3"`
+	Content   string `form:"content" validate:"required,min=10"`
+	ExpiresAt int    `form:"expires_at" validate:"oneof=0 1 7 28 365 never"`
+	*validator.Form
+}
+
+type SnippetViewForm struct {
+	ID        int          `form:"id" validate:"exists=snippets:id"`
+	Title     string       `form:"title" validate:"required,min=3"`
+	Content   string       `form:"content" validate:"required,min=10"`
+	ExpiresAt sql.NullTime `form:"expires_at"`
+	*validator.Form
 }
 
 type SnippetUpdateViewForm struct {
-	ID                  int    `form:"id"`
-	Title               string `form:"title"`
-	Content             string `form:"content"`
-	Expires             int    `form:"expires"`
-	validator.Validator `form:"-"`
+	ID        int    `form:"id" validate:"required,min=1,exists=snippets:id"`
+	Title     string `form:"title" validate:"required,min=3"`
+	Content   string `form:"content" validate:"required,min=10"`
+	ExpiresAt string `form:"expires_at"`
+	*validator.Form
+}
+
+type SnippetDeleteForm struct {
+	ID int `form:"id" validate:"required,min=1,exists=snippets:id"`
+	*validator.Form
 }
 
 type SnippetHandler struct {
@@ -51,17 +67,17 @@ func (s *SnippetHandler) Home(w http.ResponseWriter, r *http.Request) {
 	s.services.Templates.RenderView(w, r, http.StatusOK, "home", data)
 }
 
-func (s *SnippetHandler) SnippetView(w http.ResponseWriter, r *http.Request) {
+func (s *SnippetHandler) SnippetShow(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil || id < 1 {
-		s.services.Errors.ServerError(w, r, err)
+	if err != nil || id < 0 {
+		s.services.Errors.ServerError(w, r, err, http.StatusNotFound)
 		return
 	}
 
 	snippet, err := s.services.Snippets.Get(id)
 	if err != nil {
 		if errors.Is(err, models.ErrNoRecord) {
-			s.services.Errors.ClientError(w, r, http.StatusNotFound)
+			s.services.Errors.ClientError(w, r, http.StatusNotFound, &err)
 			return
 		} else {
 			s.services.Logger.Error("failed to get snippet", "error", err)
@@ -78,8 +94,9 @@ func (s *SnippetHandler) SnippetView(w http.ResponseWriter, r *http.Request) {
 
 func (s *SnippetHandler) SnippetCreateView(w http.ResponseWriter, r *http.Request) {
 	data := s.services.Templates.NewTemplateData(r)
-	data.Form = SnippetCreateViewForm{
-		Expires: 7,
+	data.Form = &SnippetCreateViewForm{
+		Form:      &validator.Form{},
+		ExpiresAt: 0,
 	}
 
 	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.create", data)
@@ -87,7 +104,7 @@ func (s *SnippetHandler) SnippetCreateView(w http.ResponseWriter, r *http.Reques
 
 func (s *SnippetHandler) SnippetEditView(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.Atoi(r.PathValue("id"))
-	if err != nil || id < 1 {
+	if err != nil {
 		s.services.Errors.ServerError(w, r, err)
 		return
 	}
@@ -95,12 +112,14 @@ func (s *SnippetHandler) SnippetEditView(w http.ResponseWriter, r *http.Request)
 	snippet, err := s.services.Snippets.Get(id)
 	if err != nil {
 		s.services.Errors.ServerError(w, r, err)
+		return
 	}
-	data.Form = SnippetUpdateViewForm{
-		ID:      snippet.ID,
-		Title:   snippet.Title,
-		Content: snippet.Content,
-		Expires: int(time.Until(snippet.Expires).Hours() / 24),
+	data.Form = &SnippetViewForm{
+		ID:        snippet.ID,
+		Title:     snippet.Title,
+		Content:   snippet.Content,
+		ExpiresAt: snippet.ExpiresAt,
+		Form:      &validator.Form{},
 	}
 
 	s.services.Templates.RenderView(w, r, http.StatusOK, "snippets.edit", data)
@@ -114,17 +133,11 @@ func (s *SnippetHandler) SnippetCreateAction(w http.ResponseWriter, r *http.Requ
 	err := s.services.Forms.DecodePostForm(r, &form)
 
 	if err != nil {
-		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
+		s.services.Errors.ClientError(w, r, http.StatusBadRequest, &err)
 		return
 	}
 
-	form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
-	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
-	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
-	form.CheckField(validator.MinChars(form.Content, 5), "content", "This field must be at least 5 characters long")
-	form.CheckField(validator.MinWordCount(form.Content, 2), "content", "This field must contain at least 3 words")
-	form.CheckField(validator.MaxChars(form.Content, 1000), "content", "This field must be less than 1000 characters long")
-	form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365), "expires", "This field must equal 1, 7 or 365")
+	form.Form = s.services.Validator.Validate(&form)
 
 	if !form.Valid() {
 		data := s.services.Templates.NewTemplateData(r)
@@ -133,42 +146,45 @@ func (s *SnippetHandler) SnippetCreateAction(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	id, err := s.services.Snippets.Insert(form.Title, form.Content, form.Expires)
-	if err != nil {
-		s.services.Logger.Error("failed to insert snippet", "error", err)
+	// Form is valid, create the snippet
+	snippet := models.Snippet{
+		Title:   form.Title,
+		Content: form.Content,
+		ExpiresAt: sql.NullTime{
+			Time:  time.Now().AddDate(0, 0, form.ExpiresAt),
+			Valid: form.ExpiresAt > 0,
+		},
+	}
+
+	err = utils.BindFormData(&form, &snippet)
+
+	id, insertErr := s.services.Snippets.Insert(snippet)
+
+	if insertErr != nil {
+		s.services.Logger.Error("failed to insert snippet", "error", insertErr)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
 	s.services.Sessions.Put(r.Context(), "flash", "Snippet successfully created!")
 
-	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/snippet/%d/view", id), http.StatusSeeOther)
 }
 
 func (s *SnippetHandler) SnippetEditAction(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, 4096)
-
-	err := r.ParseForm()
-	if err != nil {
-		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
-		return
-	}
+	id, _ := strconv.Atoi(r.PathValue("id"))
 
 	var form SnippetUpdateViewForm
+	form.ID = id
 
-	err = s.services.Forms.DecodePostForm(r, &form)
+	err := s.services.Forms.DecodePostForm(r, &form)
 	if err != nil {
-		s.services.Errors.ClientError(w, r, http.StatusBadRequest)
+		s.services.Errors.ClientError(w, r, http.StatusBadRequest, &err)
 		return
 	}
 
-	form.CheckField(validator.NotBlank(form.Title), "title", "This field cannot be blank")
-	form.CheckField(validator.MaxChars(form.Title, 100), "title", "This field cannot be more than 100 characters long")
-	form.CheckField(validator.NotBlank(form.Content), "content", "This field cannot be blank")
-	form.CheckField(validator.MinChars(form.Content, 5), "content", "This field must be at least 5 characters long")
-	form.CheckField(validator.MinWordCount(form.Content, 3), "content", "This field must contain at least 3 words")
-	form.CheckField(validator.MaxChars(form.Content, 1000), "content", "This field must be less than 1000 characters long")
-	form.CheckField(validator.PermittedValue(form.Expires, 1, 7, 365, 0), "expires", "This field must equal 1, 7, 365 days or never.")
+	form.Form = s.services.Validator.Validate(&form)
 
 	if !form.Valid() {
 		data := s.services.Templates.NewTemplateData(r)
@@ -177,16 +193,62 @@ func (s *SnippetHandler) SnippetEditAction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	id, err := s.services.Snippets.Update(form.ID, form.Title, form.Content, form.Expires)
+	expiry, _ := time.Parse("02 Jan 2006 at 15:04", form.ExpiresAt)
 
-	if err != nil {
+	snippet := models.Snippet{
+		ExpiresAt: sql.NullTime{
+			Time:  expiry,
+			Valid: true,
+		},
+	}
+
+	utils.BindFormData(&form, &snippet)
+
+	success, err := s.services.Snippets.Update(snippet)
+
+	if err != nil || !success {
 		s.services.Logger.Error("failed to insert snippet", "error", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		s.services.Errors.ServerError(w, r, err)
 		return
 	}
 
 	s.services.Sessions.Put(r.Context(), "flash", "Snippet successfully updated!")
 
-	http.Redirect(w, r, fmt.Sprintf("/snippet/view/%d", id), http.StatusSeeOther)
+	http.Redirect(w, r, fmt.Sprintf("/snippet/%d/view", id), http.StatusSeeOther)
 
+}
+
+func (s *SnippetHandler) SnippetDeleteAction(w http.ResponseWriter, r *http.Request) {
+	id, err := strconv.Atoi(r.PathValue("id"))
+	if err != nil {
+		s.services.Errors.ClientError(w, r, http.StatusBadRequest, &err)
+		return
+	}
+
+	// Validate the snippet exists
+	form := SnippetDeleteForm{
+		ID:   id,
+		Form: &validator.Form{},
+	}
+
+	form.Form = s.services.Validator.Validate(&form)
+	if !form.Valid() {
+		s.services.Errors.ClientError(w, r, http.StatusNotFound, nil)
+		return
+	}
+
+	// Delete the snippet
+	err = s.services.Snippets.Delete(id)
+	if err != nil {
+		if errors.Is(err, models.ErrNoRecord) {
+			s.services.Errors.ClientError(w, r, http.StatusNotFound, &err)
+			return
+		}
+		s.services.Logger.Error("failed to delete snippet", "error", err)
+		s.services.Errors.ServerError(w, r, err)
+		return
+	}
+
+	s.services.Sessions.Put(r.Context(), "flash", "Snippet successfully deleted!")
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
