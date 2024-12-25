@@ -5,8 +5,8 @@ import (
 	"time"
 
 	sq "github.com/Masterminds/squirrel"
-
 	"github.com/jmoiron/sqlx"
+	"thabomoyo.co.uk/internal/database"
 )
 
 type Snippet struct {
@@ -17,20 +17,32 @@ type Snippet struct {
 	CreatedAt time.Time    `db:"created_at"`
 }
 
-type SnippetModelInterface interface {
-	ModelOperations[Snippet]
-	Latest() ([]Snippet, error)
-}
 type SnippetModel struct {
-	*Model[Snippet]
+	*database.DatabaseOperations
 }
 
 func NewSnippetModel(db *sqlx.DB) *SnippetModel {
-	table := "snippets"
-	fillableFields := []string{"title", "content", "expires_at"}
 	return &SnippetModel{
-		Model: NewModel[Snippet](db, table, fillableFields),
+		DatabaseOperations: database.NewDatabaseOperations(
+			db,
+			"snippets",
+			[]string{"title", "content", "expires_at"},
+		),
 	}
+}
+
+// Get retrieves a specific snippet
+func (m *SnippetModel) Get(id int) (Snippet, error) {
+	var snippet Snippet
+	err := m.DatabaseOperations.Get(id, &snippet)
+	return snippet, err
+}
+
+// List retrieves a list of snippets
+func (m *SnippetModel) List(limit, offset int) ([]Snippet, error) {
+	var snippets []Snippet
+	err := m.DatabaseOperations.List(limit, offset, &snippets)
+	return snippets, err
 }
 
 // Latest is a custom method specific to Snippet
@@ -42,6 +54,10 @@ func (m *SnippetModel) Latest() ([]Snippet, error) {
 		OrderBy("id DESC").
 		Limit(10).
 		ToSql()
+
+	if err != nil {
+		return nil, err
+	}
 
 	err = m.DB.Select(&snippets, query, args...)
 	if err != nil {

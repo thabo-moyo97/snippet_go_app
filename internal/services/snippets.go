@@ -9,51 +9,54 @@ import (
 )
 
 type SnippetService struct {
-	snippet models.SnippetModelInterface
-	logger  *slog.Logger
+	model  *models.SnippetModel
+	logger *slog.Logger
 }
 
 func NewSnippetService(db *sqlx.DB, logger *slog.Logger) *SnippetService {
 	return &SnippetService{
-		snippet: models.NewSnippetModel(db),
-		logger:  logger,
+		model:  models.NewSnippetModel(db),
+		logger: logger,
 	}
 }
 
 func (s *SnippetService) Get(id int) (models.Snippet, error) {
-	model, err := s.snippet.Get(id)
-
-	return model, err
+	var snippet models.Snippet
+	snippet, err := s.model.Get(id)
+	return snippet, err
 }
 
 func (s *SnippetService) Create(snippet models.Snippet) (int, error) {
-	return s.snippet.Insert(snippet)
+	fillable := s.model.GetFillableFields()
+	data := utils.BuildDataMap(snippet, &fillable)
+	return s.model.Insert(data)
 }
 
+// Insert is an alias for Create to maintain backwards compatibility
 func (s *SnippetService) Insert(snippet models.Snippet) (int, error) {
-
-	return s.snippet.Insert(snippet)
+	return s.Create(snippet)
 }
 
 func (s *SnippetService) Update(snippet models.Snippet) (bool, error) {
-	fillable := s.snippet.GetFillableFields()
+	fillable := s.model.GetFillableFields()
 	data := utils.BuildDataMap(snippet, &fillable)
-
-	return s.snippet.Update(snippet.ID, data)
+	return s.model.Update(snippet.ID, data)
 }
 
 func (s *SnippetService) Delete(id int) error {
-	return s.snippet.Delete(id)
+	return s.model.Delete(id)
 }
 
 func (s *SnippetService) List(limit, offset int) ([]models.Snippet, error) {
-	return s.snippet.List(limit, offset)
+	var snippets []models.Snippet
+	snippets, err := s.model.List(limit, offset)
+	return snippets, err
 }
 
 func (s *SnippetService) Exists(id int) (bool, error) {
-	return s.snippet.Exists(id)
+	return s.model.Exists(id)
 }
 
 func (s *SnippetService) Latest() ([]models.Snippet, error) {
-	return s.snippet.Latest()
+	return s.model.Latest()
 }
