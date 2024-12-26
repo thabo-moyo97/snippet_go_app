@@ -11,6 +11,26 @@ import (
 
 var ErrNoRecord = errors.New("record not found")
 
+type Reader interface {
+	GetByID(id int, dest interface{}) error
+	List(limit, offset int, dest interface{}) error
+	Exists(id int) (bool, error)
+	GetFillableFields() []string
+}
+
+// Writer defines write database operations
+type Writer interface {
+	Insert(data map[string]interface{}) (int, error)
+	Update(id int, data map[string]interface{}) (bool, error)
+	Delete(id int) error
+}
+
+// Operations combines read and write operations
+type Operations interface {
+	Reader
+	Writer
+}
+
 // DatabaseOperations provides common database operations
 type DatabaseOperations struct {
 	DB             *sqlx.DB
@@ -26,7 +46,7 @@ func NewDatabaseOperations(db *sqlx.DB, tableName string, fillableFields []strin
 	}
 }
 
-func (ops *DatabaseOperations) Get(id int, dest interface{}) error {
+func (ops *DatabaseOperations) GetByID(id int, dest interface{}) error {
 	query := fmt.Sprintf("SELECT * FROM %s WHERE id = ?", ops.TableName)
 
 	ops.DB.Select(dest, query)
@@ -41,15 +61,9 @@ func (ops *DatabaseOperations) Get(id int, dest interface{}) error {
 	return nil
 }
 
-func (ops *DatabaseOperations) List(limit, offset int, dest interface{}) error {
+func (ops *DatabaseOperations) ListPagination(limit, offset int, dest interface{}) error {
 	query := fmt.Sprintf("SELECT * FROM %s LIMIT ? OFFSET ?", ops.TableName)
-
-	err := ops.DB.Select(&dest, query, limit, offset)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return ops.DB.Select(dest, query, limit, offset)
 }
 
 func (ops *DatabaseOperations) Exists(id int) (bool, error) {

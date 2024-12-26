@@ -9,7 +9,7 @@ import (
 )
 
 type SnippetService struct {
-	model  *models.SnippetModel
+	model  models.SnippetModelInterface
 	logger *slog.Logger
 }
 
