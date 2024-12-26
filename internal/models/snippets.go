@@ -21,12 +21,15 @@ type SnippetModel struct {
 	*database.DatabaseOperations
 }
 
+var dbTable = "snippets"
+var fillable = []string{"title", "content", "expires_at"} //referencing db columns
+
 func NewSnippetModel(db *sqlx.DB) *SnippetModel {
 	return &SnippetModel{
 		DatabaseOperations: database.NewDatabaseOperations(
 			db,
-			"snippets",
-			[]string{"title", "content", "expires_at"},
+			dbTable,
+			fillable,
 		),
 	}
 }

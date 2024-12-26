@@ -29,6 +29,7 @@ func NewDatabaseOperations(db *sqlx.DB, tableName string, fillableFields []strin
 func (ops *DatabaseOperations) Get(id int, dest interface{}) error {
 	query := fmt.Sprintf("SELECT * FROM %s WHERE id = ?", ops.TableName)
 
+	ops.DB.Select(dest, query)
 	err := ops.DB.Get(dest, query, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -43,7 +44,7 @@ func (ops *DatabaseOperations) Get(id int, dest interface{}) error {
 func (ops *DatabaseOperations) List(limit, offset int, dest interface{}) error {
 	query := fmt.Sprintf("SELECT * FROM %s LIMIT ? OFFSET ?", ops.TableName)
 
-	err := ops.DB.Select(dest, query, limit, offset)
+	err := ops.DB.Select(&dest, query, limit, offset)
 	if err != nil {
 		return err
 	}
